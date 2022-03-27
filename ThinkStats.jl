@@ -1,6 +1,6 @@
 module ThinkStats
 
-export CatDist, pmf_from_seq, mult_likelihood, probs
+export CatDist, pmf_from_seq, mult_likelihood, max_prob, pdf, maximum, getindex, probs
 
 using Distributions
 using DataFrames
@@ -10,8 +10,18 @@ struct CatDist
     dist::Categorical
 end
 
+Base.getindex(d::CatDist, prob) = pdf(d, prob)
+
 function probs(d::CatDist)
     Distributions.probs(d.dist)
+end
+
+function pdf(d::CatDist, prob)
+    index=findfirst(isequal(prob), d.values)
+    if index==nothing
+        return 0
+    end
+    Distributions.probs(d.dist)[index]
 end
 
 function maximum(d::CatDist)
