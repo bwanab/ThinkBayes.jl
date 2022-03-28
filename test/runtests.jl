@@ -1,11 +1,11 @@
 module Tst
 
-#include("ThinkStats.jl")
-using ThinkStats
+include("../src/ThinkBayes.jl")
+using .ThinkBayes
 using Plots
 using Test
 
-@testset "Test ThinkStats" begin
+@testset "Test ThinkBayes" begin
     hypos=0:100
     prior=pmf_from_seq(hypos)
     likelihood_vanilla=hypos./100
@@ -24,6 +24,8 @@ using Test
     @test pdf(posterior3, 105)==0
     @test posterior3[67]==pdf(posterior3, 67)
     @test values(posterior3)==0:100
-    @test pmf_with_probs([6, 8, 12], [1, 2, 3])[8]≈0.333333333333333
+    t=pmf_from_seq([6, 8, 12], counts=[1, 2, 3])
+    @test t[8]≈1/3
+    @test pmf_from_seq(values(t), probs(t))[8]≈1/3
 end
 end
