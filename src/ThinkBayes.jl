@@ -1,15 +1,27 @@
 module ThinkBayes
 
-export CatDist, pmf_from_seq, pmf_with_probs, mult_likelihood, max_prob, pdf, maximum, getindex, probs
+export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le
+# from Base:
+export getindex, copy, values, show, (*), (==)
+# from Distributions:
+export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
+    mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
 
-import Distributions, Distributions.probs
-import Base.copy, Base.getindex, Base.values, Base.show
+import Distributions
+import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
+    mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
+
+import Base: copy, getindex, values, show, (*), (==)
+
 using DataFrames
 
 struct CatDist
     values::Vector
     dist::Distributions.Categorical
 end
+
+
+# Base:
 
 getindex(d::CatDist, prob) = pdf(d, prob)
 copy(d::CatDist) = CatDist(copy(d.values), Distributions.Categorical(copy(probs(d))))
@@ -18,25 +30,70 @@ function show(io::IO, d::CatDist)
     a=DataFrame(a=values(d), b=probs(d))
     show(a)
 end
+(*)(d::CatDist, likelihood) = mult_likelihood(d, likelihood)
+(==)(x::CatDist, y::CatDist) = (x.values == y.values) && (probs(x) == probs(y))
 
 function probs(d::CatDist)
     Distributions.probs(d.dist)
 end
 
-function pdf(d::CatDist, prob)
-    index=findfirst(isequal(prob), d.values)
-    if index==nothing
+# Distributions
+
+findindex(d::CatDist, x) = findfirst(isequal(x), d.values)
+
+function pdf(d::CatDist, x)
+    index = findindex(d, x)
+    if index == nothing
         return 0
     end
-    Distributions.probs(d.dist)[index]
+    pdf(d.dist, index)
 end
 
-function maximum(d::CatDist)
-    Distributions.maximum(d.dist)
+function logpdf(d::CatDist, x)
+    index = findindex(d, x)
+    if index == nothing
+        return 0
+    end
+    logpdf(d.dist, index)
 end
+
+function cdf(d::CatDist, x)
+    index = findindex(d, x)
+    if index == nothing
+        return 0.0
+    end
+    cdf(d.dist, index)
+end
+
+maximum(d::CatDist) = d.values[maximum(d.dist)]
+minimum(d::CatDist) = d.values[minimum(d.dist)]
+rand(d::CatDist) = d.values[rand(d.dist)]
+sampler(d::CatDist) = sampler(d.dist)
+quantile(d::CatDist, r) = d.values[quantile(d.dist, r)]
+insupport(d::CatDist, r) = insupport(d.dist, r)
+mean(d::CatDist) = mean(d.dist)
+var(d::CatDist) = var(d.dist)
+mode(d::CatDist) = d.values[mode(d.dist)]
+modes(d::CatDist) = [d.values[x] for x in modes(d.dist)]
+skewness(d::CatDist) = skewness(d.dist)
+kurtosis(d::CatDist) = kurtosis(d.dist)
+entropy(d::CatDist) = entropy(d.dist)
+entropy(d::CatDist, r::Real) = entropy(d.dist, r)
+mgf(d::CatDist, r) = mgf(d.dist, r)
+cf(d::CatDist, r) = cf(d.dist, r)
+
+
+
+
+# CatDist:
 
 function max_prob(d::CatDist)
     (mp, index)=findmax(identity, (probs(d)))
+    d.values[index]
+end
+
+function min_prob(d::CatDist)
+    (mp, index)=findmin(identity, (probs(d)))
     d.values[index]
 end
 
@@ -69,5 +126,14 @@ end
 function normalize(probs)
     probs./sum(probs)
 end
+
+function prob_ge(d::CatDist, threshold)
+    sum(probs(d)[values(d).>=threshold])
+end
+
+function prob_le(d::CatDist, threshold)
+    sum(probs(d)[values(d).<=threshold])
+end
+
 
 end
