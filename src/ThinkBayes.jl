@@ -6,6 +6,11 @@ export getindex, copy, values, show, (*), (==)
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
+# from Plot:
+export plot, plot!
+
+import Plots: plot, plot!
+
 
 import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
@@ -20,7 +25,6 @@ struct CatDist
     dist::Distributions.Categorical
 end
 
-
 # Base:
 
 getindex(d::CatDist, prob) = pdf(d, prob)
@@ -33,11 +37,27 @@ end
 (*)(d::CatDist, likelihood) = mult_likelihood(d, likelihood)
 (==)(x::CatDist, y::CatDist) = (x.values == y.values) && (probs(x) == probs(y))
 
-function probs(d::CatDist)
-    Distributions.probs(d.dist)
+
+# Plots
+nplot=1
+function plot(d::CatDist; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+    global nplot=1
+    plot(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+end
+
+function plot!(d::CatDist; label=nothing)
+    global nplot += 1
+    if label==nothing
+        label="y"*string(ThinkBayes.nplot)
+    end
+    plot!(values(d), probs(d), label=label)
 end
 
 # Distributions
+
+function probs(d::CatDist)
+    probs(d.dist)
+end
 
 findindex(d::CatDist, x) = findfirst(isequal(x), d.values)
 
