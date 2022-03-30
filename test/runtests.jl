@@ -46,5 +46,6 @@ using Test
     @test entropy(posterior3)≈ 4.369729458150812
     #@test mgf(posterior3)≈3
     #@test cf
+    @test sum(binom_pmf(140, 250, range(0, 1, length=101)))≈0.39840637450199445
 end
 end
