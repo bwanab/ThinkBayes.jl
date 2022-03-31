@@ -1,6 +1,6 @@
 module ThinkBayes
 
-export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, binom_pmf
+export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, binom_pmf, normalize
 # from Base:
 export getindex, copy, values, show, (*), (==)
 # from Distributions:
