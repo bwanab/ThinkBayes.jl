@@ -47,7 +47,7 @@ end
 
 function plot!(d::CatDist; label=nothing)
     global nplot += 1
-    if label==nothing
+    if label===nothing
         label="y"*string(ThinkBayes.nplot)
     end
     plot!(values(d), probs(d), label=label)
@@ -63,7 +63,7 @@ findindex(d::CatDist, x) = findfirst(isequal(x), d.values)
 
 function pdf(d::CatDist, x)
     index = findindex(d, x)
-    if index == nothing
+    if index === nothing
         return 0
     end
     pdf(d.dist, index)
@@ -71,7 +71,7 @@ end
 
 function logpdf(d::CatDist, x)
     index = findindex(d, x)
-    if index == nothing
+    if index === nothing
         return 0
     end
     logpdf(d.dist, index)
@@ -79,7 +79,7 @@ end
 
 function cdf(d::CatDist, x)
     index = findindex(d, x)
-    if index == nothing
+    if index === nothing
         return 0.0
     end
     cdf(d.dist, index)
@@ -119,7 +119,7 @@ end
 
 
 function pmf_from_seq(seq; counts=nothing)::CatDist
-    if counts!=nothing
+    if counts!==nothing
         a = [fill(x,y) for (x,y) in zip(seq, counts)]
         seq=[(a...)...]
     end
