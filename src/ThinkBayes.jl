@@ -156,8 +156,13 @@ function prob_le(d::CatDist, threshold)
 end
 
 
-function binom_pmf(k, n, ps)
-    [pdf(Distributions.Binomial(n, x), k) for x in ps]
+function binom_pmf(k::Number, n::Number, ps::AbstractVector)
+    [pdf(Distributions.Binomial(n, p), k) for p in ps]
 end
+
+function binom_pmf(k::Number, ns::AbstractVector, p::Number)
+    [pdf(Distributions.Binomial(n, p), k) for n in ns]
+end
+
 
 end
