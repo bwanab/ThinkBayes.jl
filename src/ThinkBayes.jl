@@ -1,6 +1,6 @@
 module ThinkBayes
 
-export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, binom_pmf, normalize
+export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, binom_pmf, normalize, add_dist
 # from Base:
 export getindex, copy, values, show, (*), (==)
 # from Distributions:
@@ -9,7 +9,7 @@ export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insup
 # from Plot:
 export plot, plot!
 
-import Plots: plot, plot!
+import Plots: plot, plot!, bar
 
 
 import Distributions
@@ -51,6 +51,10 @@ function plot!(d::CatDist; label=nothing)
         label="y"*string(ThinkBayes.nplot)
     end
     plot!(values(d), probs(d), label=label)
+end
+
+function bar(d::CatDist; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
+    bar(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
 end
 
 # Distributions
@@ -164,5 +168,13 @@ function binom_pmf(k::Number, ns::AbstractVector, p::Number)
     [pdf(Distributions.Binomial(n, p), k) for n in ns]
 end
 
-
+function add_dist(p1::CatDist, p2::CatDist)
+    d = [((q1 + q2), (p1 * p2)) 
+          for (q1, p1) in zip(values(p1), probs(p1))
+                for (q2, p2) in zip(values(p2), probs(p2))]
+    df = DataFrame(qs=[q for (q, p) in d], ps=[p for (q, p) in d])
+    g = groupby(df, :qs)
+    d = [(first(x).qs, sum(x.ps)) for x in g]
+    CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
+end
 end
