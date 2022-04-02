@@ -1,6 +1,7 @@
 module ThinkBayes
 
-export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, binom_pmf, normalize, add_dist
+export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
+    binom_pmf, normalize, add_dist, make_binomial, loc
 # from Base:
 export getindex, copy, values, show, (*), (==)
 # from Distributions:
@@ -55,6 +56,12 @@ end
 
 function bar(d::CatDist; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
     bar(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+end
+
+# DataFrame
+
+function loc(df, val)
+    df[findfirst(==(val), df.Index), :]
 end
 
 # Distributions
@@ -166,6 +173,13 @@ end
 
 function binom_pmf(k::Number, ns::AbstractVector, p::Number)
     [pdf(Distributions.Binomial(n, p), k) for n in ns]
+end
+
+function make_binomial(n, p)
+    """Make a binomial Pmf."""
+    binom=Distributions.Binomial(n, p)
+    ks=[pdf(binom, x) for x in 0:n]
+    pmf_from_seq(0:n, ks)
 end
 
 function add_dist(p1::CatDist, p2::CatDist)
