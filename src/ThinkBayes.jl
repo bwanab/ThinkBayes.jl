@@ -1,7 +1,7 @@
 module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
-    binom_pmf, normalize, add_dist, make_binomial, loc
+    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc
 # from Base:
 export getindex, copy, values, show, (*), (==)
 # from Distributions:
@@ -182,8 +182,9 @@ function make_binomial(n, p)
     pmf_from_seq(0:n, ks)
 end
 
-function add_dist(p1::CatDist, p2::CatDist)
-    d = [((q1 + q2), (p1 * p2)) 
+
+function convolve(p1::CatDist, p2::CatDist, func)
+    d = [(func(q1, q2), (p1 * p2)) 
           for (q1, p1) in zip(values(p1), probs(p1))
                 for (q2, p2) in zip(values(p2), probs(p2))]
     df = DataFrame(qs=[q for (q, p) in d], ps=[p for (q, p) in d])
@@ -191,4 +192,29 @@ function add_dist(p1::CatDist, p2::CatDist)
     d = [(first(x).qs, sum(x.ps)) for x in g]
     CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
 end
+
+function add_dist(p1::CatDist, p2::CatDist)
+    convolve(p1, p2, +)
+end
+
+function add_dist(p1::CatDist, n::Number)
+    pmf_from_seq(values(p1).+n, probs(p1))
+end
+
+function sub_dist(p1::CatDist, p2::CatDist)
+    convolve(p1, p2, -)
+end
+
+function sub_dist(p1::CatDist, n::Number)
+    pmf_from_seq(values(p1).-n, probs(p1))
+end
+
+function mult_dist(p1::CatDist, p2::CatDist)
+    convolve(p1, p2, *)
+end
+
+function mult_dist(p1::CatDist, n::Number)
+    pmf_from_seq(values(p1).*n, probs(p1))
+end
+
 end

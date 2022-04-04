@@ -48,7 +48,12 @@ using Test
     #@test cf
     @test sum(binom_pmf(140, 250, range(0, 1, length=101)))≈0.39840637450199445
     @test normalize(1:10)[1]≈1/55
-    @test mean(reduce(add_dist, fill(pmf_from_seq(1:6), 3))) ≈ 8.5
+    d=pmf_from_seq(1:6)
+    @test mean(reduce(add_dist, fill(d, 3))) ≈ 8.5
+    @test probs(sub_dist(d, d))[4] ≈ 0.1111111111111111
+    @test values(sub_dist(d, d))[4] ≈ -2
+    @test probs(mult_dist(d, d))[6] ≈ 0.1111111111111111
+    @test values(mult_dist(d, d))[6] ≈ 6
     @test probs(make_binomial(4, 0.5))[3] ≈ 0.375
 end
 end
