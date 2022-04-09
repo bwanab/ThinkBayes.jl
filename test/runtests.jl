@@ -55,5 +55,12 @@ using Test
     @test probs(mult_dist(d, d))[6] ≈ 0.1111111111111111
     @test values(mult_dist(d, d))[6] ≈ 6
     @test probs(make_binomial(4, 0.5))[3] ≈ 0.375
+    c = make_cdf(d)
+    @test cdf(c, 3) ≈ 0.5
+    @test cdf(c, 3.5) ≈ 0.5833333333333
+    @test quantile(c, 0.5) == 3
+    d1 = make_pdf(c)
+    @test values(d) == values(d1)
+    @test probs(d) ≈ probs(d1)
 end
 end

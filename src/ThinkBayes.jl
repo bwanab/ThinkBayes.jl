@@ -2,9 +2,9 @@ module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
-    update_binomial
+    update_binomial, credible_interval
 # from Base:
-export getindex, copy, values, show, (*), (==)
+export getindex, copy, values, show, (*), (==), (^)
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -18,7 +18,7 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
 
-import Base: copy, getindex, values, show, (*), (==)
+import Base: copy, getindex, values, show, (*), (==), (^)
 
 using DataFrames
 using Interpolations
@@ -63,7 +63,11 @@ end
 # DataFrame
 
 function loc(df, val)
-    df[findfirst(==(val), df.Index), :]
+    idx = findfirst(==(val), df.Index)
+    if idx === nothing
+        return nothing
+    end
+   df[idx, :]
 end
 
 # Distributions
@@ -226,47 +230,84 @@ function mult_dist(p1::CatDist, n::Number)
     pmf_from_seq(values(p1).*n, probs(p1))
 end
 
-# cmf
-export CMF, cmf, cmfs
+function credible_interval(p1::CatDist, x::Number)
+    low = (1.0 - x) / 2.0
+    high = 1.0 - low
+    quantile(p1, [low, high])
+end
 
-struct CMF
+# CDF
+export CDF, make_cdf, cdfs, make_pdf, max_dist
+
+struct CDF
     d:: DataFrame
-    interp::Any
+    q_interp::Any
+    c_interp::Any
 end
 
-function cmf(pmf::CatDist)
-    cmfs = [cdf(pmf, x) for x in values(pmf)]
-    interp = LinearInterpolation(Interpolations.deduplicate_knots!(cmfs), values(pmf))
-    CMF(DataFrame(Index=values(pmf), cmf=cmfs), interp)
+function make_cdf(pmf::CatDist)
+    make_cdf(values(pmf), [cdf(pmf, x) for x in values(pmf)])
 end
 
-function values(cmf::CMF) 
-    cmf.d.Index
+function make_cdf(vs, cs::Vector{Float64})
+    q_interp = LinearInterpolation(Interpolations.deduplicate_knots!(cs), vs, extrapolation_bc=Line())
+    c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
+    CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
 end
 
-function cmfs(cmf::CMF)
-    cmf.d.cmf
+function values(cdf::CDF) 
+    cdf.d.Index
 end
 
-function cmf(d::CMF, x)
-    loc(d.d, x).cmf
+function cdfs(cdf::CDF)
+    cdf.d.cdf
 end
 
-function quantile(d::CMF, x)
-    d.interp(x)
+function cdf(d::CDF, x)
+    row = loc(d.d, x)
+    if row === nothing
+        return d.c_interp(x)
+    end
+    row.cdf
 end
 
-function plot(d::CMF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+function quantile(d::CDF, x)
+    d.q_interp(x)
+end
+
+function plot(d::CDF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
     global nplot=1
-    plot(values(d), cmfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+    plot(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
 end
 
-function plot!(d::CMF; label=nothing)
+function plot!(d::CDF; label=nothing)
     global nplot += 1
     if label===nothing
         label="y"*string(ThinkBayes.nplot)
     end
-    plot!(values(d), cmfs(d), label=label)
+    plot!(values(d), cdfs(d), label=label)
+end
+
+function credible_interval(p1::CDF, x::Number)
+    low = (1.0 - x) / 2.0
+    high = 1.0 - low
+    [quantile(p1, low), quantile(p1, high)]
+end
+
+function make_pdf(p1::CDF)
+    p = cdfs(p1)
+    ps = vcat(first(p), diff(p))
+    pmf_from_seq(values(p1), ps)
+end
+
+function (^)(p1::CDF, x::Number)
+    make_cdf(values(p1), cdfs(p1).^x)
+end
+
+max_dist(p1::CDF, x::Number) =  p1^x
+
+function show(io::IO, p1::CDF)
+    show(p1.d)
 end
 
 end
