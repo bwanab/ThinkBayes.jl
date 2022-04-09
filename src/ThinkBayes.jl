@@ -1,7 +1,8 @@
 module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
-    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc
+    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
+    update_binomial
 # from Base:
 export getindex, copy, values, show, (*), (==)
 # from Distributions:
@@ -20,6 +21,7 @@ import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf,
 import Base: copy, getindex, values, show, (*), (==)
 
 using DataFrames
+using Interpolations
 
 struct CatDist
     values::Vector
@@ -182,6 +184,13 @@ function make_binomial(n, p)
     pmf_from_seq(0:n, ks)
 end
 
+function update_binomial(pmf::CatDist, data)
+    (k, n) = data
+    xs = values(pmf)
+    likelihood=binom_pmf(k, n, xs)
+    pmf*=likelihood
+end
+
 
 function convolve(p1::CatDist, p2::CatDist, func)
     d = [(func(q1, q2), (p1 * p2)) 
@@ -215,6 +224,49 @@ end
 
 function mult_dist(p1::CatDist, n::Number)
     pmf_from_seq(values(p1).*n, probs(p1))
+end
+
+# cmf
+export CMF, cmf, cmfs
+
+struct CMF
+    d:: DataFrame
+    interp::Any
+end
+
+function cmf(pmf::CatDist)
+    cmfs = [cdf(pmf, x) for x in values(pmf)]
+    interp = LinearInterpolation(Interpolations.deduplicate_knots!(cmfs), values(pmf))
+    CMF(DataFrame(Index=values(pmf), cmf=cmfs), interp)
+end
+
+function values(cmf::CMF) 
+    cmf.d.Index
+end
+
+function cmfs(cmf::CMF)
+    cmf.d.cmf
+end
+
+function cmf(d::CMF, x)
+    loc(d.d, x).cmf
+end
+
+function quantile(d::CMF, x)
+    d.interp(x)
+end
+
+function plot(d::CMF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+    global nplot=1
+    plot(values(d), cmfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+end
+
+function plot!(d::CMF; label=nothing)
+    global nplot += 1
+    if label===nothing
+        label="y"*string(ThinkBayes.nplot)
+    end
+    plot!(values(d), cmfs(d), label=label)
 end
 
 end
