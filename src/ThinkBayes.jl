@@ -4,7 +4,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval
 # from Base:
-export getindex, copy, values, show, (*), (==), (^), (-)
+export getindex, copy, values, show, (*), (==), (^), (-), isapprox
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -18,7 +18,7 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
 
-import Base: copy, getindex, values, show, (*), (==), (^), (-)
+import Base: copy, getindex, values, show, (*), (==), (^), (-), isapprox
 
 using DataFrames
 using Interpolations
@@ -236,10 +236,11 @@ function credible_interval(p1::CatDist, x::Number)
     quantile(p1, [low, high])
 end
 
+abstract type AbstractDistFunction end
 # CDF
 export CDF, make_cdf, cdfs, make_pdf, max_dist
 
-struct CDF
+struct CDF <: AbstractDistFunction
     d:: DataFrame
     q_interp::Any
     c_interp::Any
@@ -276,12 +277,12 @@ function quantile(d::CDF, x)
     d.q_interp(x)
 end
 
-function plot(d::CDF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+function plot(d::AbstractDistFunction; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
     global nplot=1
     plot(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
 end
 
-function plot!(d::CDF; label=nothing)
+function plot!(d::AbstractDistFunction; label=nothing)
     global nplot += 1
     if label===nothing
         label="y"*string(ThinkBayes.nplot)
@@ -289,10 +290,14 @@ function plot!(d::CDF; label=nothing)
     plot!(values(d), cdfs(d), label=label)
 end
 
-function credible_interval(p1::CDF, x::Number)
+function credible_interval(p1::AbstractDistFunction, x::Number)
     low = (1.0 - x) / 2.0
     high = 1.0 - low
     [quantile(p1, low), quantile(p1, high)]
+end
+
+function isapprox(p1::AbstractDistFunction, p2::AbstractDistFunction)
+    (values(p1) ≈ values(p2)) && (cdfs(p1) ≈ cdfs(p2))
 end
 
 function make_pdf(p1::CDF)
@@ -315,7 +320,7 @@ end
 
 export make_ccdf
 
-struct CCDF
+struct CCDF <: AbstractDistFunction
     d:: DataFrame
     q_interp::Any
     c_interp::Any
@@ -332,6 +337,12 @@ function make_ccdf(vs, cs::Vector{Float64})
     q_interp = LinearInterpolation(knots, reverse(vs), extrapolation_bc=Line())
     c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
     CCDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
+end
+
+function make_cdf(p1::CCDF)::CDF
+    vs = values(p1)
+    cs = 1 .- cdfs(p1)
+    make_cdf(vs, cs)
 end
 
 function (^)(p1::CCDF, x::Number)
@@ -355,19 +366,6 @@ end
 
 function quantile(d::CCDF, x)
     d.q_interp(x)
-end
-
-function plot(d::CCDF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
-    global nplot=1
-    plot(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
-end
-
-function plot!(d::CCDF; label=nothing)
-    global nplot += 1
-    if label===nothing
-        label="y"*string(ThinkBayes.nplot)
-    end
-    plot!(values(d), cdfs(d), label=label)
 end
 
 function show(io::IO, p1::CCDF)

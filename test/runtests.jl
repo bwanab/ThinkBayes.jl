@@ -65,5 +65,7 @@ using Test
     cc = make_ccdf(c)
     @test cdf(cc, 3) ≈ 0.5
     @test cdf(cc, 3.5) ≈ 0.41666666666
+    c1 = make_cdf(cc)
+    @test c ≈ c1
 end
 end
