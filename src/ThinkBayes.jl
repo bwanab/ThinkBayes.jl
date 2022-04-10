@@ -4,7 +4,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval
 # from Base:
-export getindex, copy, values, show, (*), (==), (^)
+export getindex, copy, values, show, (*), (==), (^), (-)
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -18,7 +18,7 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
 
-import Base: copy, getindex, values, show, (*), (==), (^)
+import Base: copy, getindex, values, show, (*), (==), (^), (-)
 
 using DataFrames
 using Interpolations
@@ -237,7 +237,7 @@ function credible_interval(p1::CatDist, x::Number)
 end
 
 # CDF
-export CDF, make_cdf, cdfs, make_pdf, max_dist
+export CDF, make_cdf, cdfs, make_pdf, max_dist, make_ccdf
 
 struct CDF
     d:: DataFrame
@@ -253,6 +253,16 @@ function make_cdf(vs, cs::Vector{Float64})
     q_interp = LinearInterpolation(Interpolations.deduplicate_knots!(cs), vs, extrapolation_bc=Line())
     c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
     CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
+end
+
+function make_ccdf(p1::CDF)
+    vs = values(p1)
+    cs = 1 .- cdfs(p1)
+    knots = Interpolations.deduplicate_knots!(reverse(cs))
+    q_interp = LinearInterpolation(knots, reverse(vs), extrapolation_bc=Line())
+    c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
+    CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
+
 end
 
 function values(cdf::CDF) 
