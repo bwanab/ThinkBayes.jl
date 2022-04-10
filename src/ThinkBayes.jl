@@ -237,7 +237,7 @@ function credible_interval(p1::CatDist, x::Number)
 end
 
 # CDF
-export CDF, make_cdf, cdfs, make_pdf, max_dist, make_ccdf
+export CDF, make_cdf, cdfs, make_pdf, max_dist
 
 struct CDF
     d:: DataFrame
@@ -255,15 +255,6 @@ function make_cdf(vs, cs::Vector{Float64})
     CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
 end
 
-function make_ccdf(p1::CDF)
-    vs = values(p1)
-    cs = 1 .- cdfs(p1)
-    knots = Interpolations.deduplicate_knots!(reverse(cs))
-    q_interp = LinearInterpolation(knots, reverse(vs), extrapolation_bc=Line())
-    c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
-    CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
-
-end
 
 function values(cdf::CDF) 
     cdf.d.Index
@@ -317,6 +308,69 @@ end
 max_dist(p1::CDF, x::Number) =  p1^x
 
 function show(io::IO, p1::CDF)
+    show(p1.d)
+end
+
+# CCDF
+
+export make_ccdf
+
+struct CCDF
+    d:: DataFrame
+    q_interp::Any
+    c_interp::Any
+end
+
+function make_ccdf(p1::CDF)::CCDF
+    vs = values(p1)
+    cs = 1 .- cdfs(p1)
+    make_ccdf(vs, cs)
+end
+ 
+function make_ccdf(vs, cs::Vector{Float64})
+    knots = Interpolations.deduplicate_knots!(reverse(cs))
+    q_interp = LinearInterpolation(knots, reverse(vs), extrapolation_bc=Line())
+    c_interp = LinearInterpolation(vs, cs, extrapolation_bc = Line())
+    CCDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
+end
+
+function (^)(p1::CCDF, x::Number)
+    make_ccdf(values(p1), cdfs(p1).^x)
+end
+function values(cdf::CCDF) 
+    cdf.d.Index
+end
+
+function cdfs(cdf::CCDF)
+    cdf.d.cdf
+end
+
+function cdf(d::CCDF, x)
+    row = loc(d.d, x)
+    if row === nothing
+        return d.c_interp(x)
+    end
+    row.cdf
+end
+
+function quantile(d::CCDF, x)
+    d.q_interp(x)
+end
+
+function plot(d::CCDF; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+    global nplot=1
+    plot(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+end
+
+function plot!(d::CCDF; label=nothing)
+    global nplot += 1
+    if label===nothing
+        label="y"*string(ThinkBayes.nplot)
+    end
+    plot!(values(d), cdfs(d), label=label)
+end
+
+function show(io::IO, p1::CCDF)
     show(p1.d)
 end
 

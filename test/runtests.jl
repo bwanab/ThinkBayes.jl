@@ -62,5 +62,8 @@ using Test
     d1 = make_pdf(c)
     @test values(d) == values(d1)
     @test probs(d) ≈ probs(d1)
+    cc = make_ccdf(c)
+    @test cdf(cc, 3) ≈ 0.5
+    @test cdf(cc, 3.5) ≈ 0.41666666666
 end
 end
