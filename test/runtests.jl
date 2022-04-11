@@ -51,9 +51,12 @@ using Test
     d=pmf_from_seq(1:6)
     @test mean(reduce(add_dist, fill(d, 3))) ≈ 8.5
     @test probs(sub_dist(d, d))[4] ≈ 0.1111111111111111
+    @test probs(d - d)[4] ≈ 0.1111111111111111
     @test values(sub_dist(d, d))[4] ≈ -2
     @test probs(mult_dist(d, d))[6] ≈ 0.1111111111111111
+    @test probs(d * d)[6] ≈ 0.1111111111111111
     @test values(mult_dist(d, d))[6] ≈ 6
+    @test values(d / d)[7] ≈ 2.0
     @test probs(make_binomial(4, 0.5))[3] ≈ 0.375
     c = make_cdf(d)
     @test cdf(c, 3) ≈ 0.5

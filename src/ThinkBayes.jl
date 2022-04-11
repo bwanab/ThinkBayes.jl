@@ -2,9 +2,9 @@ module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
-    update_binomial, credible_interval
+    update_binomial, credible_interval, make_pmf
 # from Base:
-export getindex, copy, values, show, (*), (==), (^), (-), isapprox
+export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -18,7 +18,7 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf
 
-import Base: copy, getindex, values, show, (*), (==), (^), (-), isapprox
+import Base: copy, getindex, values, show, (+), (*), (==), (^), (-), (/), isapprox
 
 using DataFrames
 using Interpolations
@@ -206,29 +206,65 @@ function convolve(p1::CatDist, p2::CatDist, func)
     CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
 end
 
-function add_dist(p1::CatDist, p2::CatDist)
-    convolve(p1, p2, +)
+add_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, +)
+add_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).+n, probs(p1))
+sub_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, -)
+sub_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).-n, probs(p1))
+mult_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, *)
+mult_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).*n, probs(p1))
+div_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, /)
+div_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1)./n, probs(p1))
+
+function dist_op2(p1::CatDist, p2::CatDist, func)
+    vs = vcat(values(p1), values(p2)) |> sort |> unique
+    qs = [func(pdf(p1, v), pdf(p2, v)) for v in vs]
+    (vs, qs)
+end
+function dist_op1(p1::CatDist, n::Number, func)
+    vs = values(p1)
+    qs = [func.(pdf(p1, v), n) for v in vs]
+    (vs, qs)
+end
+function dist_op3(p1::CatDist, vqs::Tuple{Vector, Vector}, func)
+    (vs, qs) = vqs
+    vs1 = vcat(values(p1), vs) |> sort |> unique
+    qs1 = [func(pdf(p1, v), qs[v]) for v in vs]
+    (vs1, qs1)
+end
+function dist_op4(vqs::Tuple{Vector, Vector}, n::Number, func)
+    (vs, qs) = vqs
+    qsx = [func.(vs[v], n) for v in vs]
+    (vs, qsx)
+end
+function dist_op5(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}, func)
+    (vs1, qs1) = vqs1
+    (vs2, qs2) = vqs2
+    vsx = vcat(vs1, vs2) |> sort |> unique
+    qsx = [func(qs1[v], qs2[v]) for v in vs]
+    (vsx, qsx)
 end
 
-function add_dist(p1::CatDist, n::Number)
-    pmf_from_seq(values(p1).+n, probs(p1))
-end
-
-function sub_dist(p1::CatDist, p2::CatDist)
-    convolve(p1, p2, -)
-end
-
-function sub_dist(p1::CatDist, n::Number)
-    pmf_from_seq(values(p1).-n, probs(p1))
-end
-
-function mult_dist(p1::CatDist, p2::CatDist)
-    convolve(p1, p2, *)
-end
-
-function mult_dist(p1::CatDist, n::Number)
-    pmf_from_seq(values(p1).*n, probs(p1))
-end
+(+)(p1::CatDist, p2::CatDist) = dist_op2(p1, p2, +)
+(+)(p1::CatDist, n::Number) = dist_op1(p1, n, +)
+(+)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op3(p1, vqs, +)
+(+)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op4(vqs, n, +)
+(+)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op5(vqs1, vqs2, +)
+(-)(p1::CatDist, p2::CatDist) = dist_op2(p1, p2, -)
+(-)(p1::CatDist, n::Number) = dist_op1(p1, n, -)
+(-)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op3(p1, vqs, -)
+(-)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op4(vqs, n, -)
+(-)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op5(vqs1, vqs2, -)
+(*)(p1::CatDist, p2::CatDist) = dist_op2(p1, p2, *)
+(*)(p1::CatDist, n::Number) = dist_op1(p1, n, *)
+(*)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op3(p1, vqs, *)
+(*)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op4(vqs, n, *)
+(*)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op5(vqs1, vqs2, *)
+(/)(p1::CatDist, p2::CatDist) = dist_op2(p1, p2, /)
+(/)(p1::CatDist, n::Number) = dist_op1(p1, n, /)
+(/)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op3(p1, vqs, /)
+(/)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op4(vqs, n, /)
+(/)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op5(vqs1, vqs2, /)
+make_pmf(vqs::Tuple{Vector, Vector}) = pmf_from_seq(vqs[1], normalize(vqs[2]))
 
 function credible_interval(p1::CatDist, x::Number)
     low = (1.0 - x) / 2.0
@@ -238,7 +274,7 @@ end
 
 abstract type AbstractDistFunction end
 # CDF
-export CDF, make_cdf, cdfs, make_pdf, max_dist
+export CDF, make_cdf, cdfs, make_pdf, max_dist, min_dist
 
 struct CDF <: AbstractDistFunction
     d:: DataFrame
@@ -300,17 +336,23 @@ function isapprox(p1::AbstractDistFunction, p2::AbstractDistFunction)
     (values(p1) ≈ values(p2)) && (cdfs(p1) ≈ cdfs(p2))
 end
 
-function make_pdf(p1::CDF)
+function make_pdf(p1::AbstractDistFunction)
     p = cdfs(p1)
     ps = vcat(first(p), diff(p))
     pmf_from_seq(values(p1), ps)
 end
 
-function (^)(p1::CDF, x::Number)
+function (^)(p1::AbstractDistFunction, x::Number)
     make_cdf(values(p1), cdfs(p1).^x)
 end
 
-max_dist(p1::CDF, x::Number) =  p1^x
+max_dist(p1::AbstractDistFunction, x::Number) =  p1^x
+
+function min_dist(p1::AbstractDistFunction, x::Number)
+    prob_gt = make_ccdf(p1);
+    prob_gt6 = prob_gt^x
+    make_cdf(prob_gt6)
+end
 
 function show(io::IO, p1::CDF)
     show(p1.d)
