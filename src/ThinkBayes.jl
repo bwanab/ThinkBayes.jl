@@ -2,7 +2,8 @@ module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, prob_ge, prob_le, 
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
-    update_binomial, credible_interval, make_pmf
+    update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
+    make_mixture
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -34,7 +35,7 @@ getindex(d::CatDist, prob) = pdf(d, prob)
 copy(d::CatDist) = CatDist(copy(d.values), Distributions.Categorical(copy(probs(d))))
 values(d::CatDist) = d.values
 function show(io::IO, d::CatDist)
-    a=DataFrame(a=values(d), b=probs(d))
+    a=DataFrame(Values=values(d), Probs=probs(d))
     show(a)
 end
 (*)(d::CatDist, likelihood) = mult_likelihood(d, likelihood)
@@ -222,7 +223,7 @@ function dist_op2(p1::CatDist, p2::CatDist, func)
 end
 function dist_op1(p1::CatDist, n::Number, func)
     vs = values(p1)
-    qs = [func.(pdf(p1, v), n) for v in vs]
+    qs = func.(probs(p1), n)
     (vs, qs)
 end
 function dist_op3(p1::CatDist, vqs::Tuple{Vector, Vector}, func)
@@ -233,7 +234,7 @@ function dist_op3(p1::CatDist, vqs::Tuple{Vector, Vector}, func)
 end
 function dist_op4(vqs::Tuple{Vector, Vector}, n::Number, func)
     (vs, qs) = vqs
-    qsx = [func.(vs[v], n) for v in vs]
+    qsx = func.(qs, n)
     (vs, qsx)
 end
 function dist_op5(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}, func)
@@ -270,6 +271,23 @@ function credible_interval(p1::CatDist, x::Number)
     low = (1.0 - x) / 2.0
     high = 1.0 - low
     quantile(p1, [low, high])
+end
+
+function make_df_from_seq_pmf(seq::Vector{CatDist})
+    a = [[pdf(x, i) for i in values(x)] for x in seq]
+    max_len = length.(a) |> maximum
+    a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
+    a2  = reshape(reduce(vcat, a1), max_len, length(seq)) |> transpose
+    DataFrame([a2[x,:] for x in 1:length(seq)], :auto)
+end
+
+function make_mixture(pmf, pmf_seq)
+    #a = [[pdf(x, i) for i in values(x)] for x in pmf_seq]
+    a = [probs(x) for x in pmf_seq]
+    max_len = length.(a) |> maximum
+    a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
+    a1 = reshape(reduce(vcat, a1), max_len, length(pmf_seq))
+    a1 * probs(pmf)    
 end
 
 abstract type AbstractDistFunction end
