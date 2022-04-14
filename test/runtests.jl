@@ -37,7 +37,7 @@ using Test
     @test logpdf(posterior3, 67)≈-4.029781288915619
     @test quantile(posterior3, 1/3)==51
     @test insupport(posterior3, 1/3)==false
-    @test mean(posterior3)≈ 60.995999999999995
+    @test mean(posterior3)≈ 59.995999999999995
     @test var(posterior3)≈ 399.879984
     @test modes(posterior3)==[67]
     @test mode(posterior3)≈67
@@ -49,19 +49,25 @@ using Test
     @test sum(binom_pmf(140, 250, range(0, 1, length=101)))≈0.39840637450199445
     @test normalize(1:10)[1]≈1/55
     d=pmf_from_seq(1:6)
-    @test mean(reduce(add_dist, fill(d, 3))) ≈ 8.5
+    @test mean(reduce(add_dist, fill(d, 3))) ≈ 10.5
     @test probs(sub_dist(d, d))[4] ≈ 0.1111111111111111
-    @test probs(d - d)[4] ≈ 0.1111111111111111
+    xs = (values(d), [x for x in 0.1:0.01:0.15])
+    @test probs(d - xs |> make_pmf)[3] ≈ 0.18666666666666668
     @test values(sub_dist(d, d))[4] ≈ -2
     @test probs(mult_dist(d, d))[6] ≈ 0.1111111111111111
-    @test probs(d * d)[6] ≈ 0.1111111111111111
+    @test probs(d * xs |> make_pmf)[6] ≈ 0.2
     @test values(mult_dist(d, d))[6] ≈ 6
-    @test values(d / d)[7] ≈ 2.0
+    @test values(d / xs |> make_pmf)[6] ≈ 6
     @test probs(make_binomial(4, 0.5))[3] ≈ 0.375
     c = make_cdf(d)
     @test cdf(c, 3) ≈ 0.5
     @test cdf(c, 3.5) ≈ 0.5833333333333
     @test quantile(c, 0.5) == 3
+    @test mean(c) ≈ mean(d)
+    @test var(c) ≈ var(d)
+    @test std(c) ≈ std(d)
+    @test prob_le(c, 3) ≈ prob_le(d, 3)
+    @test prob_le(c, 3) ≈ 0.5
     d1 = make_pdf(c)
     @test values(d) == values(d1)
     @test probs(d) ≈ probs(d1)
