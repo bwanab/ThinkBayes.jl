@@ -298,8 +298,12 @@ function make_df_from_seq_pmf(seq::Vector{CatDist})
     DataFrame([a2[x,:] for x in 1:length(seq)], :auto)
 end
 
-function make_mixture(pmf, pmf_seq)
-    #a = [[pdf(x, i) for i in values(x)] for x in pmf_seq]
+"""
+This is the original make_mixture. I leave it here to show how
+it could be done with the components, but it's replaced below by 
+a version from Distributions.
+"""
+function make_mixture_old(pmf, pmf_seq)
     a = [probs(x) for x in pmf_seq]
     max_len = length.(a) |> maximum
     a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
@@ -307,6 +311,13 @@ function make_mixture(pmf, pmf_seq)
     ps = a1 * probs(pmf)
     pmf_from_seq(1:length(ps), ps)
 end 
+
+function make_mixture(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
+    vs = collect(Iterators.flatten([values(d) for d in pmf_seq])) |> sort |> unique
+    m = Distributions.MixtureModel(Distributions.Categorical[p.dist for p in pmf_seq], probs(pmf))
+    pmf_from_seq(vs, [pdf(m, v) for v in vs])
+end
+
 
 abstract type AbstractDistFunction end
 # CDF
