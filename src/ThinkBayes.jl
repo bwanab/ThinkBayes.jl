@@ -4,7 +4,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
-    make_mixture
+    make_mixture, make_poisson_pmf, update_poisson
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -158,6 +158,19 @@ function pmf_from_seq(seq; counts=nothing)::CatDist
     CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
 end
 
+function make_poisson_pmf(lamda, vals)
+    dist = Distributions.Poisson(lamda)
+    ps = normalize([pdf(dist, v) for v in vals])
+    pmf_from_seq(vals, ps)
+end
+
+function update_poisson(p::CatDist, data)
+    k = data
+    lambdas = values(p)
+    likelihood = [pdf(Distributions.Poisson(lambda), k) for lambda in lambdas]
+    p * likelihood
+end
+
 function pmf_from_seq(seq, probs::Array{Float64})::CatDist
     CatDist(seq, Distributions.Categorical(probs))
 end
@@ -190,6 +203,30 @@ function prob_lt(d::CatDist, threshold)
     sum(probs(d)[values(d).<threshold])
 end
 
+"""
+Two functions that do the same thing: Compute the probability
+that one pmf is greater than another. I'd expected them to be
+about the same speed, but the second seems much faster:
+
+For two pmfs of 101 rows, doing the computation 10000 times takes 
+7.4 seconds for prob_gt_old and 2.2 seconds for prob_gt.
+"""
+function prob_gt_old(d1::CatDist, d2::CatDist)
+    sum([p1 * p2
+        for (q1, p1) in items(d1)
+            for (q2, p2) in items(d2)
+                if q1 > q2])
+end
+
+function prob_gt(d1::CatDist, d2::CatDist)
+    prod(x::Tuple) = x[1] * x[2]
+    gt(x::Tuple) = x[1] > x[2]
+    g = broadcast(gt, collect(Iterators.product(values(d1), values(d2))))
+    p = broadcast(prod, collect(Iterators.product(probs(d1), probs(d2))))
+    sum(g .* p)
+end
+
+items(d::CatDist) = [x for x in zip(values(d), probs(d))]
 
 function binom_pmf(k::Number, n::Number, ps::AbstractVector)
     [pdf(Distributions.Binomial(n, p), k) for p in ps]
@@ -216,8 +253,8 @@ end
 
 function convolve(p1::CatDist, p2::CatDist, func)
     d = [(func(q1, q2), (p1 * p2)) 
-          for (q1, p1) in zip(values(p1), probs(p1))
-                for (q2, p2) in zip(values(p2), probs(p2))]
+          for (q1, p1) in items(p1)
+                for (q2, p2) in items(p2)]
     df = DataFrame(qs=[q for (q, p) in d], ps=[p for (q, p) in d])
     g = groupby(df, :qs)
     d = [(first(x).qs, sum(x.ps)) for x in g]
