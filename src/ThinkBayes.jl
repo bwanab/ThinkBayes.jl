@@ -1,7 +1,7 @@
 module ThinkBayes
 
 export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, 
-    prob_ge, prob_le, prob_gt, prob_lt,
+    prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson
@@ -226,6 +226,14 @@ function prob_gt(d1::CatDist, d2::CatDist)
     sum(g .* p)
 end
 
+function prob_lt(d1::CatDist, d2::CatDist)
+    prob_gt(d2, d1)
+end
+
+function prob_eq(d1::CatDist, d2::CatDist)
+    1 - (prob_gt(d1, d2) + prob_gt(d2, d1))
+end
+
 items(d::CatDist) = [x for x in zip(values(d), probs(d))]
 
 function binom_pmf(k::Number, n::Number, ps::AbstractVector)
@@ -352,7 +360,7 @@ end
 function make_mixture(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
     vs = collect(Iterators.flatten([values(d) for d in pmf_seq])) |> sort |> unique
     m = Distributions.MixtureModel(Distributions.Categorical[p.dist for p in pmf_seq], probs(pmf))
-    pmf_from_seq(vs, [pdf(m, v) for v in vs])
+    pmf_from_seq(vs, normalize([pdf(m, v) for v in vs]))
 end
 
 
