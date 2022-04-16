@@ -4,7 +4,8 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
-    make_mixture, make_poisson_pmf, update_poisson
+    make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf,
+    expo_pdf
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -162,6 +163,15 @@ function make_poisson_pmf(lamda, vals)
     dist = Distributions.Poisson(lamda)
     ps = normalize([pdf(dist, v) for v in vals])
     pmf_from_seq(vals, ps)
+end
+
+function make_exponential_pmf(lambda::Float64, vals::Vector{Float64})
+    e = Distributions.Exponential(1/lambda)
+    pmf_from_seq(vals, normalize([pdf(e, v) for v in vals]))
+end
+
+function  expo_pdf(lambdas::Vector{Float64}, val::Float64)
+    [pdf(Distributions.Exponential(1/lambda), val) for lambda in lambdas]
 end
 
 function update_poisson(p::CatDist, data)
