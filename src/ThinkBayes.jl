@@ -4,7 +4,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
-    make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf,
+    make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, make_gamma_pmf,
     expo_pdf
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -166,8 +166,17 @@ function make_poisson_pmf(lamda, vals)
 end
 
 function make_exponential_pmf(lambda::Float64, vals::Vector{Float64})
-    e = Distributions.Exponential(1/lambda)
+    λ = 0.000001
+    if lambda > 0
+        λ = lambda
+    end
+    e = Distributions.Exponential(1/λ)
     pmf_from_seq(vals, normalize([pdf(e, v) for v in vals]))
+end
+
+function make_exponential_pmf(lambda::Float64, high::Number)
+    qs = LinRange(0, high, 101)
+    make_exponential_pmf(lambda, [q for q in qs])
 end
 
 function  expo_pdf(lambdas::Vector{Float64}, val::Float64)
@@ -179,6 +188,13 @@ function update_poisson(p::CatDist, data)
     lambdas = values(p)
     likelihood = [pdf(Distributions.Poisson(lambda), k) for lambda in lambdas]
     p * likelihood
+end
+
+function make_gamma_pmf(alpha::Float64, high::Number)
+    vals = [x for x in LinRange(0, high, 101)]
+    g = Distributions.Gamma(alpha)
+    ps = [pdf(g, v) for v in vals];
+    pmf_from_seq(vals, normalize(ps))
 end
 
 function pmf_from_seq(seq, probs::Array{Float64})::CatDist
@@ -252,6 +268,10 @@ end
 
 function binom_pmf(k::Number, ns::AbstractVector, p::Number)
     [pdf(Distributions.Binomial(n, p), k) for n in ns]
+end
+
+function binom_pmf(ks::AbstractVector, n::Number, p::Number)
+    [pdf(Distributions.Binomial(n, p), k) for k in ks]
 end
 
 function make_binomial(n, p)
@@ -357,8 +377,10 @@ end
 This is the original make_mixture. I leave it here to show how
 it could be done with the components, but it's replaced below by 
 a version from Distributions.
+
+NOTE: see the note below. Returning to use this version which seems to work in all contexts.
 """
-function make_mixture_old(pmf, pmf_seq)
+function make_mixture(pmf, pmf_seq)
     a = [probs(x) for x in pmf_seq]
     max_len = length.(a) |> maximum
     a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
@@ -367,10 +389,13 @@ function make_mixture_old(pmf, pmf_seq)
     pmf_from_seq(1:length(ps), ps)
 end 
 
-function make_mixture(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
+"""
+Works in some contexts, but not in general. TODO: figure out why.
+"""
+function make_mixture_should_work(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
     vs = collect(Iterators.flatten([values(d) for d in pmf_seq])) |> sort |> unique
     m = Distributions.MixtureModel(Distributions.Categorical[p.dist for p in pmf_seq], probs(pmf))
-    pmf_from_seq(vs, normalize([pdf(m, v) for v in vs]))
+    pmf_from_seq(vs, normalize([pdf(m, v+1) for v in vs]))
 end
 
 
