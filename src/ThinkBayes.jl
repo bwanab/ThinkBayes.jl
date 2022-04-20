@@ -190,8 +190,8 @@ function update_poisson(p::CatDist, data)
     p * likelihood
 end
 
-function make_gamma_pmf(alpha::Float64, high::Number)
-    vals = [x for x in LinRange(0, high, 101)]
+function make_gamma_pmf(alpha::Float64, high::Number; n::Int64 = 101)
+    vals = [x for x in LinRange(0, high, n)]
     g = Distributions.Gamma(alpha)
     ps = [pdf(g, v) for v in vals];
     pmf_from_seq(vals, normalize(ps))
@@ -377,8 +377,6 @@ end
 This is the original make_mixture. I leave it here to show how
 it could be done with the components, but it's replaced below by 
 a version from Distributions.
-
-NOTE: see the note below. Returning to use this version which seems to work in all contexts.
 """
 function make_mixture(pmf, pmf_seq)
     a = [probs(x) for x in pmf_seq]
@@ -390,11 +388,11 @@ function make_mixture(pmf, pmf_seq)
 end 
 
 """
-Works in some contexts, but not in general. TODO: figure out why.
+
 """
 function make_mixture_should_work(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
     vs = collect(Iterators.flatten([values(d) for d in pmf_seq])) |> sort |> unique
-    m = Distributions.MixtureModel(Distributions.Categorical[p.dist for p in pmf_seq], probs(pmf))
+    m = Distributions.MixtureModel(Distributions.Categorical, [probs(p.dist) for p in pmf_seq], probs(pmf))
     pmf_from_seq(vs, normalize([pdf(m, v+1) for v in vs]))
 end
 
