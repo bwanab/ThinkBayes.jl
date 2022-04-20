@@ -76,5 +76,8 @@ using Test
     @test cdf(cc, 3.5) ≈ 0.41666666666
     c1 = make_cdf(cc)
     @test c ≈ c1
+    d1 = pmf_from_seq(3:8)
+    d2 = pmf_from_seq(1:2:12, counts=[1, 2, 3, 3, 2, 1])
+    @test prob_gt(d1, d2) ≈ 0.38888888888888895
 end
 end
