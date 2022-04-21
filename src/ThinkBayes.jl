@@ -5,7 +5,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, make_gamma_pmf,
-    expo_pdf
+    expo_pdf, kde_from_sample
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -25,6 +25,7 @@ import Base: copy, getindex, values, show, (+), (*), (==), (^), (-), (/), isappr
 
 using DataFrames
 using Interpolations
+using KernelDensity
 
 struct CatDist
     values::Vector
@@ -195,6 +196,17 @@ function make_gamma_pmf(alpha::Float64, high::Number; n::Int64 = 101)
     g = Distributions.Gamma(alpha)
     ps = [pdf(g, v) for v in vals];
     pmf_from_seq(vals, normalize(ps))
+end
+
+function kde_from_sample(d, q_min, q_max, q_n)
+    k = kde(d, boundary=(q_min, q_max), npoints=q_n)
+    ik = InterpKDE(k)
+    qs = [x for x in LinRange(q_min, q_max, q_n)]
+    ps = [pdf(ik, x) for x in qs]
+    # this next step must be done because the ps for very low numbers
+    # seems to alternate signs which is a no-no for Distributions.Categorical
+    ps = normalize([x < 1e-12 ? 0 : x for x in ps])
+    pmf_from_seq(qs, normalize(ps))
 end
 
 function pmf_from_seq(seq, probs::Array{Float64})::CatDist
