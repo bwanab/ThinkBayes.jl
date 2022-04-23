@@ -5,7 +5,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, make_gamma_pmf,
-    expo_pdf, kde_from_sample
+    expo_pdf, kde_from_sample, items
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -301,14 +301,14 @@ function update_binomial(pmf::CatDist, data)
 end
 
 
-function convolve(p1::CatDist, p2::CatDist, func)
-    d = [(func(q1, q2), (p1 * p2)) 
-          for (q1, p1) in items(p1)
-                for (q2, p2) in items(p2)]
-    df = DataFrame(qs=[q for (q, p) in d], ps=[p for (q, p) in d])
+function convolve(d1::CatDist, d2::CatDist, func)
+    d = sort([(func(q1, q2), (p1 * p2)) 
+          for (q1, p1) in items(d1)
+                for (q2, p2) in items(d2)])
+    df = DataFrame(qs=[round(q, digits=8) for (q, p) in d], ps=[p for (q, p) in d])
     g = groupby(df, :qs)
     d = [(first(x).qs, sum(x.ps)) for x in g]
-    CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
+    CatDist([q for (q, p) in d], Distributions.Categorical([p for (q, p) in d]))
 end
 
 add_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, +)
@@ -396,7 +396,7 @@ function make_mixture(pmf, pmf_seq)
     a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
     a1 = reshape(reduce(vcat, a1), max_len, length(pmf_seq))
     ps = a1 * probs(pmf)
-    pmf_from_seq(1:length(ps), ps)
+    pmf_from_seq(values(pmf), ps)
 end 
 
 """
