@@ -4,7 +4,8 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
-    make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, make_gamma_pmf,
+    make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
+    make_gamma_pmf, make_normal_pmf,
     expo_pdf, kde_from_sample, items
 # from Base:
 export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -194,6 +195,17 @@ end
 function make_gamma_pmf(alpha::Float64, high::Number; n::Int64 = 101)
     vals = [x for x in LinRange(0, high, n)]
     g = Distributions.Gamma(alpha)
+    ps = [pdf(g, v) for v in vals];
+    pmf_from_seq(vals, normalize(ps))
+end
+
+function make_normal_pmf(mu::Float64 = 0.0, sigma::Float64 = 1.0, low::Number = -5 , high::Number = 5, n::Int64 = 101)
+    vals = [x for x in LinRange(low, high, n)]
+    make_normal_pmf(vals, mu=mu, sigma=sigma)
+end
+
+function make_normal_pmf(vals::Vector; mu::Float64 = 0.0, sigma::Float64 = 1.0)
+    g = Distributions.Normal(mu, sigma)
     ps = [pdf(g, v) for v in vals];
     pmf_from_seq(vals, normalize(ps))
 end
