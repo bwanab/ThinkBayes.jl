@@ -8,7 +8,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     make_gamma_pmf, make_normal_pmf,
     expo_pdf, kde_from_sample, items
 # from Base:
-export getindex, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
+export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, std, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -22,7 +22,7 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf, std
 
-import Base: copy, getindex, values, show, (+), (*), (==), (^), (-), (/), isapprox
+import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/), isapprox
 
 using DataFrames
 using Interpolations
@@ -35,13 +35,31 @@ end
 
 # Base:
 
-getindex(d::CatDist, prob) = pdf(d, prob)
+getindex(d::CatDist, val) = pdf(d, val)
+function setindex!(d::CatDist, new_prob, val)
+   idx = findfirst(values(d).==val)
+    ps = probs(d)
+    ps[idx] = new_prob
+    new_ps = normalize(ps)
+    for i in 1:length(ps)
+        ps[i] = new_ps[i]
+    end
+end
 copy(d::CatDist) = CatDist(copy(d.values), Distributions.Categorical(copy(probs(d))))
 values(d::CatDist) = d.values
 function show(io::IO, d::CatDist)
     a=DataFrame(Values=values(d), Probs=probs(d))
     show(a)
 end
+function show(io::IO, ::MIME"text/plain", d::CatDist)
+    a=DataFrame(Values=values(d), Probs=probs(d))
+    show(io, "text/plain", a)
+end
+function show(io::IO, ::MIME"text/html", d::CatDist)
+    a=DataFrame(Values=values(d), Probs=probs(d))
+    show(io, "text/html", a)
+end
+display(d::CatDist) = show(d)
 (*)(d::CatDist, likelihood) = mult_likelihood(d, likelihood)
 (==)(x::CatDist, y::CatDist) = (x.values == y.values) && (probs(x) == probs(y))
 
@@ -63,6 +81,16 @@ end
 
 function bar(d::CatDist; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
     bar(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+end
+
+function plot(bs::Vector{CatDist})
+	bs_len = length(bs)
+	xs = values(bs[1])
+	xlen = length(xs)
+	ps = reshape(reduce(vcat, [probs(b) for b in bs]), xlen, bs_len)
+	titles = reshape(["machine"*string(i) for i in 1:bs_len], 1, bs_len)
+	#bar(xs, ps, label=titles, layout=(2,2))
+	plot(xs, ps, label=titles, layout=(2,2))
 end
 
 # DataFrame
@@ -110,7 +138,15 @@ end
 maximum(d::CatDist) = d.values[maximum(d.dist)]
 minimum(d::CatDist) = d.values[minimum(d.dist)]
 rand(d::CatDist) = d.values[rand(d.dist)]
-sampler(d::CatDist) = sampler(d.dist)
+function rand(d::CatDist, dim::Int64)
+    vals = values(d)
+    [vals[rv] for rv in rand(d.dist, dim)]
+end
+function rand(d::CatDist, dims::Tuple{Vararg{Int64, N}} where N)
+    vals = values(d)
+    [vals[rv] for rv in rand(d.dist, dims)]
+end
+sampler(d::CatDist) = Distributions.AliasTable(probs(d))
 quantile(d::CatDist, r) = d.values[quantile(d.dist, r)]
 insupport(d::CatDist, r) = insupport(d.dist, r)
 #TODO: fix mean should be the interpolation of the value at the mean, not the index into the distribution.
@@ -204,7 +240,7 @@ function make_normal_pmf(mu::Float64 = 0.0, sigma::Float64 = 1.0, low::Number = 
     make_normal_pmf(vals, mu=mu, sigma=sigma)
 end
 
-function make_normal_pmf(vals::Vector; mu::Float64 = 0.0, sigma::Float64 = 1.0)
+function make_normal_pmf(vals; mu::Float64 = 0.0, sigma::Float64 = 1.0)
     g = Distributions.Normal(mu, sigma)
     ps = [pdf(g, v) for v in vals];
     pmf_from_seq(vals, normalize(ps))
@@ -296,6 +332,10 @@ end
 
 function binom_pmf(ks::AbstractVector, n::Number, p::Number)
     [pdf(Distributions.Binomial(n, p), k) for k in ks]
+end
+
+function binom_pmf(k::Number, n::Number, p::Number)
+    pdf(Distributions.Binomial(n, p), k)
 end
 
 function make_binomial(n, p)
