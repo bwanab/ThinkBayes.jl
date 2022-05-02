@@ -258,11 +258,111 @@ function choose(beliefs)
 	argmax(ps)[1]
 end
 
-# ╔═╡ 9dc6b706-2f93-4e7b-9704-af7a7dba5833
-choose(beliefs)
-
 # ╔═╡ 574f8530-830f-4d14-a96b-b1f4cd10b9cf
 md"## The Strategy"
+
+# ╔═╡ e5037692-5321-4bcf-b513-d3e36f7a0006
+counter
+
+# ╔═╡ 384c4659-99d3-4488-92d4-22945301e805
+md"""## Exercises
+### The Model
+"""
+
+# ╔═╡ 43b331ff-52b7-4513-a77f-3fce96a01917
+function prob_correct(ability, difficulty)
+	a = 100
+	c = 0.25
+	x = (ability - difficulty) / a
+	p = c + (1 - c) / (1 + exp(-x))
+end
+
+# ╔═╡ 22e11f32-4c8f-4fcf-9de0-17cdfbaf41b6
+begin
+	abilities = 100:900
+	diff = 500
+	ps = [prob_correct(ability, diff) for ability in abilities]
+end
+
+# ╔═╡ ecf17617-b1d0-45bf-902d-6c658ebe079b
+plot(abilities, ps)
+
+# ╔═╡ 4ea20eb3-9c56-4f85-a926-f018a6f1d5b3
+md"### Simulating the Test"
+
+# ╔═╡ bb3add72-161a-4410-aed2-8330e036e4da
+function play_sat(ability, difficulty)
+	p = prob_correct(ability, difficulty)
+	rand() < p
+end
+
+# ╔═╡ 0076d91a-083f-4d90-80a2-c589b001e8c0
+outcomes = [play_sat(600, 500) for _ in 1:51]
+
+# ╔═╡ 562bc715-92ee-4760-8cc8-adcf60a88473
+mean(outcomes)
+
+# ╔═╡ 3be4a7c5-23e0-482d-83a8-032e01f8f8d2
+md"### The Prior"
+
+# ╔═╡ bd279551-6d68-46bd-8a67-c44c6c98be90
+begin
+	mean_ability = 500.0
+	std_ability = 300.0
+	qs = LinRange(0, 1000, 50)
+	prior_ability = make_normal_pmf(qs, mu=mean_ability, sigma=std_ability)
+end;
+
+# ╔═╡ e1e47a59-aa3a-41c2-bbba-71f87e0fd909
+plot(prior_ability)
+
+# ╔═╡ cb656c48-0af8-4ae1-97ba-aba70b7dd33c
+md"### The Update"
+
+# ╔═╡ d2386d59-c373-4624-8f6a-e338d6b16d4b
+function update_ability(pmf, data)
+	(difficulty, outcome) = data
+	abilities = values(pmf)
+	ps = [prob_correct(ability, difficulty) for ability in abilities]
+	if outcome
+		return pmf * ps
+	else
+		return pmf * (1 .- ps)
+	end
+end
+
+
+# ╔═╡ bf1c5610-ab1c-49c9-a3c2-950eab01fdb7
+actual_600 = copy(prior_ability);
+
+# ╔═╡ f17874bc-adfe-461d-b830-ee74bc3ff9c5
+
+
+# ╔═╡ 0ae1b1d7-aa99-4857-bc12-dd5c04ce7db1
+begin
+	ac = [actual_600]
+	for outcome in outcomes
+		data = (500, outcome)
+		ac[1] = update_ability(ac[1], data)
+	end
+end
+
+# ╔═╡ e747c36b-6a71-442f-9125-15dfb1cac9ce
+plot(ac[1])
+
+# ╔═╡ a9906311-e051-4f7b-ab0e-c825700bb404
+mean(ac[1])
+
+# ╔═╡ ff652039-979e-46c7-a437-8fd153bba144
+md"### Adaptation"
+
+# ╔═╡ 3179d6fe-b83e-4ca5-bd5d-b9b59f1c90ec
+function choose(i, belief)
+	return 500
+end
+
+# ╔═╡ 9dc6b706-2f93-4e7b-9704-af7a7dba5833
+choose(beliefs)
 
 # ╔═╡ 7f9ded89-d120-4242-9167-601435dfadc4
 function choose_play_update(beliefs)
@@ -292,13 +392,169 @@ plot(beliefs2)
 # ╔═╡ e0ad0ec5-e3c9-45b1-b654-8ae61143afc4
 summarize_beliefs(beliefs2)
 
-# ╔═╡ e5037692-5321-4bcf-b513-d3e36f7a0006
-counter
+# ╔═╡ 554d41b2-bd00-4420-af60-a7c4a6d2c757
+function simulate_test(actual_ability, num_questions; choose_func=choose)
+	belief = [copy(prior_ability)]
+	function st(i)
+		difficulty = choose_func(i, belief[1])
+		outcome = play_sat(actual_ability, difficulty)
+		data = (difficulty, outcome)
+		belief[1] = update_ability(belief[1], data)
+		(difficulty, outcome)
+	end
+	vals = [st(i) for i in 1:num_questions]
+	trace = DataFrame(difficulty=getindex.(vals, 1), outcome=getindex.(vals, 2))
+	return (belief[1], trace)
+end
 
-# ╔═╡ 384c4659-99d3-4488-92d4-22945301e805
-md"## Exercises"
+# ╔═╡ c4caf98e-b8c0-4635-b758-6dcf506d0ed9
+(belief, trace) = simulate_test(600, 51);
 
-# ╔═╡ 43b331ff-52b7-4513-a77f-3fce96a01917
+# ╔═╡ f109ebdf-cb54-437c-8024-67124a89262c
+sum(trace.outcome)
+
+# ╔═╡ 8382e3d8-47e5-4b85-a897-e5f4e3960e7b
+plot(belief)
+
+# ╔═╡ e047cec0-21eb-4009-a346-37e0af426b98
+md"### Quantifying Precision"
+
+# ╔═╡ 490f5418-b674-4f52-902c-8de526660bb5
+mean(belief), std(belief)
+
+# ╔═╡ 15dc191e-2fca-406a-a4ed-7ff4c8f03813
+begin
+	actual_abilities = LinRange(200, 800, 50)
+	function do_st(ability)
+		belief, trace = simulate_test(ability, 51)
+		std(belief)
+	end
+	series = [do_st(ability) for ability in actual_abilities]
+end
+
+# ╔═╡ 1b74c680-c03f-49a7-8ce5-4fb54bfbe444
+scatter(actual_abilities, series)
+
+# ╔═╡ aa746610-3c77-44d4-8aff-faa8599e4d0c
+md"### Discriminatory Power"
+
+# ╔═╡ aeb69ae1-e734-43f8-8cde-ed4150d7638c
+function sample_posterior(actual_ability; iters=100, choose_func=choose)
+	function do_st()
+		belief, trace = simulate_test(actual_ability, 51, choose_func=choose_func)
+		mean(belief)
+	end
+	[do_st() for i in 1:iters]
+end
+
+# ╔═╡ 009db74d-aa2d-45e8-a17f-30bffae7e774
+sample_500 = sample_posterior(500)
+
+# ╔═╡ fb207dd0-93f2-4247-a7c9-85bc2b193170
+sample_600 = sample_posterior(600)
+
+# ╔═╡ 3da1e00c-f1d8-4b5d-b4c1-ba91ad57242c
+sample_700 = sample_posterior(700)
+
+# ╔═╡ 4e8676bb-e5be-4a0e-8b6c-726d3cd6da2c
+sample_800 = sample_posterior(800)
+
+# ╔═╡ f43e52f9-0bd0-461e-bf68-0134cc7031bd
+cdf_500 = cdf_from_seq(sample_500)
+
+# ╔═╡ 51579977-d451-4b2d-94c9-b1c71b27e286
+cdf_600 = cdf_from_seq(sample_600)
+
+# ╔═╡ 8f38630e-b042-438e-8f83-5a330743ffe9
+cdf_700 = cdf_from_seq(sample_700)
+
+# ╔═╡ 54a85836-a20d-4fdf-b7a0-6e6bcefd6c49
+cdf_800 = cdf_from_seq(sample_800)
+
+# ╔═╡ 49702532-7fea-4dde-9e34-4768928c9a3c
+begin
+	plot(cdf_500, label="500")
+	plot!(cdf_600, label="600")
+	plot!(cdf_700, label="700")
+	plot!(cdf_800, label="800")
+end
+
+# ╔═╡ 59658096-7075-4590-89a1-f90d67243585
+mean(sample_600 .> sample_500)
+
+# ╔═╡ f75489c9-ba14-45ac-96b0-1bfb969ee04f
+mean(sample_700 .> sample_600)
+
+# ╔═╡ 2a346886-fbe7-4b48-9faf-400d9d2d3307
+difficulties = LinRange(200, 800, 51)
+
+# ╔═╡ 898a2b2b-a740-4e1b-ac49-003d676a4a08
+function choose1(i, belief)
+	difficulties[i]
+end
+
+# ╔═╡ c83e046f-2517-4915-9f33-2bbedc0adb48
+function choose2(i, belief)
+	mean(belief)
+end
+
+# ╔═╡ 93aae2b9-f35e-44ca-9663-ac624c8569df
+begin
+	sample_5001 = sample_posterior(500, choose_func=choose1)
+	sample_5002 = sample_posterior(500, choose_func=choose2)
+	sample_6001 = sample_posterior(600, choose_func=choose1)
+	sample_6002 = sample_posterior(600, choose_func=choose2)
+	sample_7001 = sample_posterior(700, choose_func=choose1)
+	sample_7002 = sample_posterior(700, choose_func=choose2)
+	sample_8001 = sample_posterior(800, choose_func=choose1)
+	sample_8002 = sample_posterior(800, choose_func=choose2)
+	cdf_5001 = cdf_from_seq(sample_5001)
+	cdf_5002 = cdf_from_seq(sample_5002)
+	cdf_6001 = cdf_from_seq(sample_6001)
+	cdf_6002 = cdf_from_seq(sample_6002)
+	cdf_7001 = cdf_from_seq(sample_7001)
+	cdf_7002 = cdf_from_seq(sample_7002)
+	cdf_8001 = cdf_from_seq(sample_8001)
+	cdf_8002 = cdf_from_seq(sample_8002)
+end
+
+# ╔═╡ 40be469e-cd7e-4a41-a851-68f1bbb61ae7
+begin
+	plot(cdf_5001, label="5001")
+	plot!(cdf_6001, label="6001")
+	plot!(cdf_7001, label="7001")
+	plot!(cdf_8001, label="8001")
+end
+
+# ╔═╡ 40ecc4e1-a822-4a03-8425-f624c79baf9e
+begin
+	plot(cdf_5002, label="5002")
+	plot!(cdf_6002, label="6002")
+	plot!(cdf_7002, label="7002")
+	plot!(cdf_8002, label="8002")
+end
+
+# ╔═╡ daf691fb-6d3e-4262-a9ec-5f96f1b23ab2
+mean(sample_6001 .> sample_5001)
+
+# ╔═╡ 4eda627b-0d71-4008-a6de-f74bd813af4e
+mean(sample_7001 .> sample_6001)
+
+
+# ╔═╡ f9d01704-0105-4009-bb4f-a8a114e56b79
+mean(sample_8001 .> sample_7001)
+
+
+# ╔═╡ 17fafffa-bf55-44e8-8597-d4d07f54d32b
+mean(sample_6002 .> sample_5002)
+
+
+# ╔═╡ 846aa029-aeb5-4f40-9443-2cc62d76534b
+mean(sample_7002 .> sample_6002)
+
+
+# ╔═╡ 071d7b7b-2b6f-42a2-80d4-77fdee6c7ca0
+mean(sample_8002 .> sample_7002)
 
 
 # ╔═╡ Cell order:
@@ -377,3 +633,54 @@ md"## Exercises"
 # ╠═e5037692-5321-4bcf-b513-d3e36f7a0006
 # ╟─384c4659-99d3-4488-92d4-22945301e805
 # ╠═43b331ff-52b7-4513-a77f-3fce96a01917
+# ╠═22e11f32-4c8f-4fcf-9de0-17cdfbaf41b6
+# ╠═ecf17617-b1d0-45bf-902d-6c658ebe079b
+# ╟─4ea20eb3-9c56-4f85-a926-f018a6f1d5b3
+# ╠═bb3add72-161a-4410-aed2-8330e036e4da
+# ╠═0076d91a-083f-4d90-80a2-c589b001e8c0
+# ╠═562bc715-92ee-4760-8cc8-adcf60a88473
+# ╟─3be4a7c5-23e0-482d-83a8-032e01f8f8d2
+# ╠═bd279551-6d68-46bd-8a67-c44c6c98be90
+# ╠═e1e47a59-aa3a-41c2-bbba-71f87e0fd909
+# ╟─cb656c48-0af8-4ae1-97ba-aba70b7dd33c
+# ╠═d2386d59-c373-4624-8f6a-e338d6b16d4b
+# ╠═bf1c5610-ab1c-49c9-a3c2-950eab01fdb7
+# ╠═f17874bc-adfe-461d-b830-ee74bc3ff9c5
+# ╠═0ae1b1d7-aa99-4857-bc12-dd5c04ce7db1
+# ╠═e747c36b-6a71-442f-9125-15dfb1cac9ce
+# ╠═a9906311-e051-4f7b-ab0e-c825700bb404
+# ╟─ff652039-979e-46c7-a437-8fd153bba144
+# ╠═3179d6fe-b83e-4ca5-bd5d-b9b59f1c90ec
+# ╠═554d41b2-bd00-4420-af60-a7c4a6d2c757
+# ╠═c4caf98e-b8c0-4635-b758-6dcf506d0ed9
+# ╠═f109ebdf-cb54-437c-8024-67124a89262c
+# ╠═8382e3d8-47e5-4b85-a897-e5f4e3960e7b
+# ╟─e047cec0-21eb-4009-a346-37e0af426b98
+# ╠═490f5418-b674-4f52-902c-8de526660bb5
+# ╠═15dc191e-2fca-406a-a4ed-7ff4c8f03813
+# ╠═1b74c680-c03f-49a7-8ce5-4fb54bfbe444
+# ╟─aa746610-3c77-44d4-8aff-faa8599e4d0c
+# ╠═aeb69ae1-e734-43f8-8cde-ed4150d7638c
+# ╠═009db74d-aa2d-45e8-a17f-30bffae7e774
+# ╠═fb207dd0-93f2-4247-a7c9-85bc2b193170
+# ╠═3da1e00c-f1d8-4b5d-b4c1-ba91ad57242c
+# ╠═4e8676bb-e5be-4a0e-8b6c-726d3cd6da2c
+# ╠═f43e52f9-0bd0-461e-bf68-0134cc7031bd
+# ╠═51579977-d451-4b2d-94c9-b1c71b27e286
+# ╠═8f38630e-b042-438e-8f83-5a330743ffe9
+# ╠═54a85836-a20d-4fdf-b7a0-6e6bcefd6c49
+# ╠═49702532-7fea-4dde-9e34-4768928c9a3c
+# ╠═59658096-7075-4590-89a1-f90d67243585
+# ╠═f75489c9-ba14-45ac-96b0-1bfb969ee04f
+# ╠═2a346886-fbe7-4b48-9faf-400d9d2d3307
+# ╠═898a2b2b-a740-4e1b-ac49-003d676a4a08
+# ╠═c83e046f-2517-4915-9f33-2bbedc0adb48
+# ╠═93aae2b9-f35e-44ca-9663-ac624c8569df
+# ╠═40be469e-cd7e-4a41-a851-68f1bbb61ae7
+# ╠═40ecc4e1-a822-4a03-8425-f624c79baf9e
+# ╠═daf691fb-6d3e-4262-a9ec-5f96f1b23ab2
+# ╠═4eda627b-0d71-4008-a6de-f74bd813af4e
+# ╠═f9d01704-0105-4009-bb4f-a8a114e56b79
+# ╠═17fafffa-bf55-44e8-8597-d4d07f54d32b
+# ╠═846aa029-aeb5-4f40-9443-2cc62d76534b
+# ╠═071d7b7b-2b6f-42a2-80d4-77fdee6c7ca0
