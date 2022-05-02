@@ -86,6 +86,6 @@ using Test
     beta_dist = Beta(2, 2)
     pdf_beta = pmf_from_dist(LinRange(0, 1, 50), beta_dist)
     @test mean(pdf_beta) ≈ 0.5
-    @test round(std(pdf_beta), digits=5) ≈ 0.22236
+    @test round(std(pdf_beta), digits=5) ≈ 0.22342
 end
 end
