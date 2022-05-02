@@ -2,6 +2,7 @@ module Tst
 
 include("../src/ThinkBayes.jl")
 using .ThinkBayes
+using Distributions: Beta
 using Plots
 using Test
 
@@ -79,5 +80,12 @@ using Test
     d1 = pmf_from_seq(3:8)
     d2 = pmf_from_seq(1:2:12, counts=[1, 2, 3, 3, 2, 1])
     @test prob_gt(d1, d2) ≈ 0.38888888888888895
+    pdf_n = make_normal_pmf(LinRange(-5, 5, 50))
+    @test round(mean(pdf_n), digits = 8) ≈ 0.0
+    @test round(std(pdf_n), digits = 4) ≈ 1.0
+    beta_dist = Beta(2, 2)
+    pdf_beta = pmf_from_dist(LinRange(0, 1, 50), beta_dist)
+    @test mean(pdf_beta) ≈ 0.5
+    @test round(std(pdf_beta), digits=5) ≈ 0.22236
 end
 end

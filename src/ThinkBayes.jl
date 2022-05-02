@@ -5,7 +5,7 @@ export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
-    make_gamma_pmf, make_normal_pmf,
+    make_gamma_pmf, make_normal_pmf, pmf_from_dist,
     expo_pdf, kde_from_sample, items
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -199,8 +199,7 @@ end
 
 function make_poisson_pmf(lamda, vals)
     dist = Distributions.Poisson(lamda)
-    ps = normalize([pdf(dist, v) for v in vals])
-    pmf_from_seq(vals, ps)
+    pmf_from_dist(vals, dist)
 end
 
 function make_exponential_pmf(lambda::Float64, vals::Vector{Float64})
@@ -209,7 +208,7 @@ function make_exponential_pmf(lambda::Float64, vals::Vector{Float64})
         λ = lambda
     end
     e = Distributions.Exponential(1/λ)
-    pmf_from_seq(vals, normalize([pdf(e, v) for v in vals]))
+    pmf_from_dist(vals, e)
 end
 
 function make_exponential_pmf(lambda::Float64, high::Number)
@@ -232,7 +231,7 @@ function make_gamma_pmf(alpha::Float64, high::Number; n::Int64 = 101)
     vals = [x for x in LinRange(0, high, n)]
     g = Distributions.Gamma(alpha)
     ps = [pdf(g, v) for v in vals];
-    pmf_from_seq(vals, normalize(ps))
+    pmf_from_dist(vals, g)
 end
 
 function make_normal_pmf(mu::Float64 = 0.0, sigma::Float64 = 1.0, low::Number = -5 , high::Number = 5, n::Int64 = 101)
@@ -242,8 +241,7 @@ end
 
 function make_normal_pmf(vals; mu::Float64 = 0.0, sigma::Float64 = 1.0)
     g = Distributions.Normal(mu, sigma)
-    ps = [pdf(g, v) for v in vals];
-    pmf_from_seq(vals, normalize(ps))
+    pmf_from_dist(vals, g)
 end
 
 function kde_from_sample(d, q_min, q_max, q_n)
@@ -255,6 +253,11 @@ function kde_from_sample(d, q_min, q_max, q_n)
     # seems to alternate signs which is a no-no for Distributions.Categorical
     ps = normalize([x < 1e-12 ? 0 : x for x in ps])
     pmf_from_seq(qs, normalize(ps))
+end
+
+function pmf_from_dist(vals, dist:: Distributions.UnivariateDistribution)
+    ps = [pdf(dist, v) for v in vals]
+    pmf_from_seq(vals, normalize(ps))
 end
 
 function pmf_from_seq(seq, probs::Array{Float64})::CatDist
