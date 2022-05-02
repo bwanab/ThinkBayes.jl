@@ -1,6 +1,6 @@
 module ThinkBayes
 
-export CatDist, pmf_from_seq, mult_likelihood, max_prob, min_prob, 
+export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
@@ -28,15 +28,15 @@ using DataFrames
 using Interpolations
 using KernelDensity
 
-struct CatDist
+struct Pmf
     values::Vector
     dist::Distributions.Categorical
 end
 
 # Base:
 
-getindex(d::CatDist, val) = pdf(d, val)
-function setindex!(d::CatDist, new_prob, val)
+getindex(d::Pmf, val) = pdf(d, val)
+function setindex!(d::Pmf, new_prob, val)
    idx = findfirst(values(d).==val)
     ps = probs(d)
     ps[idx] = new_prob
@@ -45,33 +45,33 @@ function setindex!(d::CatDist, new_prob, val)
         ps[i] = new_ps[i]
     end
 end
-copy(d::CatDist) = CatDist(copy(d.values), Distributions.Categorical(copy(probs(d))))
-values(d::CatDist) = d.values
-function show(io::IO, d::CatDist)
+copy(d::Pmf) = Pmf(copy(d.values), Distributions.Categorical(copy(probs(d))))
+values(d::Pmf) = d.values
+function show(io::IO, d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
     show(a)
 end
-function show(io::IO, ::MIME"text/plain", d::CatDist)
+function show(io::IO, ::MIME"text/plain", d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
     show(io, "text/plain", a)
 end
-function show(io::IO, ::MIME"text/html", d::CatDist)
+function show(io::IO, ::MIME"text/html", d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
     show(io, "text/html", a)
 end
-display(d::CatDist) = show(d)
-(*)(d::CatDist, likelihood) = mult_likelihood(d, likelihood)
-(==)(x::CatDist, y::CatDist) = (x.values == y.values) && (probs(x) == probs(y))
+display(d::Pmf) = show(d)
+(*)(d::Pmf, likelihood) = mult_likelihood(d, likelihood)
+(==)(x::Pmf, y::Pmf) = (x.values == y.values) && (probs(x) == probs(y))
 
 
 # Plots
 nplot=1
-function plot(d::CatDist; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+function plot(d::Pmf; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
     global nplot=1
     plot(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
 end
 
-function plot!(d::CatDist; label=nothing)
+function plot!(d::Pmf; label=nothing)
     global nplot += 1
     if label===nothing
         label="y"*string(ThinkBayes.nplot)
@@ -79,11 +79,11 @@ function plot!(d::CatDist; label=nothing)
     plot!(values(d), probs(d), label=label)
 end
 
-function bar(d::CatDist; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
+function bar(d::Pmf; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
     bar(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
 end
 
-function plot(bs::Vector{CatDist})
+function plot(bs::Vector{Pmf})
 	bs_len = length(bs)
 	xs = values(bs[1])
 	xlen = length(xs)
@@ -105,13 +105,13 @@ end
 
 # Distributions
 
-function probs(d::CatDist)
+function probs(d::Pmf)
     probs(d.dist)
 end
 
-findindex(d::CatDist, x) = findfirst(isequal(x), d.values)
+findindex(d::Pmf, x) = findfirst(isequal(x), d.values)
 
-function pdf(d::CatDist, x)
+function pdf(d::Pmf, x)
     index = findindex(d, x)
     if index === nothing
         return 0
@@ -119,7 +119,7 @@ function pdf(d::CatDist, x)
     pdf(d.dist, index)
 end
 
-function logpdf(d::CatDist, x)
+function logpdf(d::Pmf, x)
     index = findindex(d, x)
     if index === nothing
         return 0
@@ -127,7 +127,7 @@ function logpdf(d::CatDist, x)
     logpdf(d.dist, index)
 end
 
-function cdf(d::CatDist, x)
+function cdf(d::Pmf, x)
     index = findindex(d, x)
     if index === nothing
         return 0.0
@@ -135,57 +135,57 @@ function cdf(d::CatDist, x)
     cdf(d.dist, index)
 end
 
-maximum(d::CatDist) = d.values[maximum(d.dist)]
-minimum(d::CatDist) = d.values[minimum(d.dist)]
-rand(d::CatDist) = d.values[rand(d.dist)]
-function rand(d::CatDist, dim::Int64)
+maximum(d::Pmf) = d.values[maximum(d.dist)]
+minimum(d::Pmf) = d.values[minimum(d.dist)]
+rand(d::Pmf) = d.values[rand(d.dist)]
+function rand(d::Pmf, dim::Int64)
     vals = values(d)
     [vals[rv] for rv in rand(d.dist, dim)]
 end
-function rand(d::CatDist, dims::Tuple{Vararg{Int64, N}} where N)
+function rand(d::Pmf, dims::Tuple{Vararg{Int64, N}} where N)
     vals = values(d)
     [vals[rv] for rv in rand(d.dist, dims)]
 end
-sampler(d::CatDist) = Distributions.AliasTable(probs(d))
-quantile(d::CatDist, r) = d.values[quantile(d.dist, r)]
-insupport(d::CatDist, r) = insupport(d.dist, r)
+sampler(d::Pmf) = Distributions.AliasTable(probs(d))
+quantile(d::Pmf, r) = d.values[quantile(d.dist, r)]
+insupport(d::Pmf, r) = insupport(d.dist, r)
 #TODO: fix mean should be the interpolation of the value at the mean, not the index into the distribution.
 #      like mode, but interpolated instead of the actual value.
 # Note: I decided to take the simpler route of implementing it like in
 #       empiricaldist.py from Allen Downey's ThinkBayes
-mean(d::CatDist) = sum(values(d) .* probs(d))
-function var(d::CatDist)
+mean(d::Pmf) = sum(values(d) .* probs(d))
+function var(d::Pmf)
     m = mean(d)
     dd = values(d) .- m
     sum(dd .^ 2 .* probs(d))
 end
-std(d::CatDist) = var(d) ^ 0.5
-mode(d::CatDist) = d.values[mode(d.dist)]
-modes(d::CatDist) = [d.values[x] for x in modes(d.dist)]
-skewness(d::CatDist) = skewness(d.dist)
-kurtosis(d::CatDist) = kurtosis(d.dist)
-entropy(d::CatDist) = entropy(d.dist)
-entropy(d::CatDist, r::Real) = entropy(d.dist, r)
-mgf(d::CatDist, r) = mgf(d.dist, r)
-cf(d::CatDist, r) = cf(d.dist, r)
+std(d::Pmf) = var(d) ^ 0.5
+mode(d::Pmf) = d.values[mode(d.dist)]
+modes(d::Pmf) = [d.values[x] for x in modes(d.dist)]
+skewness(d::Pmf) = skewness(d.dist)
+kurtosis(d::Pmf) = kurtosis(d.dist)
+entropy(d::Pmf) = entropy(d.dist)
+entropy(d::Pmf, r::Real) = entropy(d.dist, r)
+mgf(d::Pmf, r) = mgf(d.dist, r)
+cf(d::Pmf, r) = cf(d.dist, r)
 
 
 
 
-# CatDist:
+# Pmf:
 
-function max_prob(d::CatDist)
+function max_prob(d::Pmf)
     (mp, index)=findmax(identity, (probs(d)))
     d.values[index]
 end
 
-function min_prob(d::CatDist)
+function min_prob(d::Pmf)
     (mp, index)=findmin(identity, (probs(d)))
     d.values[index]
 end
 
 
-function pmf_from_seq(seq; counts=nothing)::CatDist
+function pmf_from_seq(seq; counts=nothing)::Pmf
     if counts!==nothing
         a = [fill(x,y) for (x,y) in zip(seq, counts)]
         seq=[(a...)...]
@@ -194,7 +194,7 @@ function pmf_from_seq(seq; counts=nothing)::CatDist
     len=length(seq)
     g=groupby(df, :a)
     d=[(first(x).a, nrow(x)/len) for x in g]
-    CatDist([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
+    Pmf([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
 end
 
 function make_poisson_pmf(lamda, vals)
@@ -220,7 +220,7 @@ function  expo_pdf(lambdas::Vector{Float64}, val::Float64)
     [pdf(Distributions.Exponential(1/lambda), val) for lambda in lambdas]
 end
 
-function update_poisson(p::CatDist, data)
+function update_poisson(p::Pmf, data)
     k = data
     lambdas = values(p)
     likelihood = [pdf(Distributions.Poisson(lambda), k) for lambda in lambdas]
@@ -260,16 +260,16 @@ function pmf_from_dist(vals, dist:: Distributions.UnivariateDistribution)
     pmf_from_seq(vals, normalize(ps))
 end
 
-function pmf_from_seq(seq, probs::Array{Float64})::CatDist
-    CatDist(seq, Distributions.Categorical(probs))
+function pmf_from_seq(seq, probs::Array{Float64})::Pmf
+    Pmf(seq, Distributions.Categorical(probs))
 end
 
 
-function pmf_new_probs(d::CatDist, probs)::CatDist
-    CatDist(d.values, Distributions.Categorical(probs))
+function pmf_new_probs(d::Pmf, probs)::Pmf
+    Pmf(d.values, Distributions.Categorical(probs))
 end
 
-function mult_likelihood(d::CatDist, likelihood)::CatDist
+function mult_likelihood(d::Pmf, likelihood)::Pmf
     pmf_new_probs(d, normalize(probs(d).*likelihood))
 end
 
@@ -277,18 +277,18 @@ function normalize(probs)
     probs./sum(probs)
 end
 
-function prob_ge(d::CatDist, threshold)
+function prob_ge(d::Pmf, threshold)
     sum(probs(d)[values(d).>=threshold])
 end
 
-function prob_gt(d::CatDist, threshold)
+function prob_gt(d::Pmf, threshold)
     sum(probs(d)[values(d).>threshold])
 end
 
-function prob_le(d::CatDist, threshold)
+function prob_le(d::Pmf, threshold)
     sum(probs(d)[values(d).<=threshold])
 end
-function prob_lt(d::CatDist, threshold)
+function prob_lt(d::Pmf, threshold)
     sum(probs(d)[values(d).<threshold])
 end
 
@@ -300,14 +300,14 @@ about the same speed, but the second seems much faster:
 For two pmfs of 101 rows, doing the computation 10000 times takes 
 7.4 seconds for prob_gt_old and 2.2 seconds for prob_gt.
 """
-function prob_gt_old(d1::CatDist, d2::CatDist)
+function prob_gt_old(d1::Pmf, d2::Pmf)
     sum([p1 * p2
         for (q1, p1) in items(d1)
             for (q2, p2) in items(d2)
                 if q1 > q2])
 end
 
-function prob_gt(d1::CatDist, d2::CatDist)
+function prob_gt(d1::Pmf, d2::Pmf)
     prod(x::Tuple) = x[1] * x[2]
     gt(x::Tuple) = x[1] > x[2]
     g = broadcast(gt, collect(Iterators.product(values(d1), values(d2))))
@@ -315,15 +315,15 @@ function prob_gt(d1::CatDist, d2::CatDist)
     sum(g .* p)
 end
 
-function prob_lt(d1::CatDist, d2::CatDist)
+function prob_lt(d1::Pmf, d2::Pmf)
     prob_gt(d2, d1)
 end
 
-function prob_eq(d1::CatDist, d2::CatDist)
+function prob_eq(d1::Pmf, d2::Pmf)
     1 - (prob_gt(d1, d2) + prob_gt(d2, d1))
 end
 
-items(d::CatDist) = [x for x in zip(values(d), probs(d))]
+items(d::Pmf) = [x for x in zip(values(d), probs(d))]
 
 function binom_pmf(k::Number, n::Number, ps::AbstractVector)
     [pdf(Distributions.Binomial(n, p), k) for p in ps]
@@ -348,7 +348,7 @@ function make_binomial(n, p)
     pmf_from_seq(0:n, ks)
 end
 
-function update_binomial(pmf::CatDist, data)
+function update_binomial(pmf::Pmf, data)
     (k, n) = data
     xs = values(pmf)
     likelihood=binom_pmf(k, n, xs)
@@ -356,36 +356,36 @@ function update_binomial(pmf::CatDist, data)
 end
 
 
-function convolve(d1::CatDist, d2::CatDist, func)
+function convolve(d1::Pmf, d2::Pmf, func)
     d = sort([(func(q1, q2), (p1 * p2)) 
           for (q1, p1) in items(d1)
                 for (q2, p2) in items(d2)])
     df = DataFrame(qs=[round(q, digits=8) for (q, p) in d], ps=[p for (q, p) in d])
     g = groupby(df, :qs)
     d = [(first(x).qs, sum(x.ps)) for x in g]
-    CatDist([q for (q, p) in d], Distributions.Categorical([p for (q, p) in d]))
+    Pmf([q for (q, p) in d], Distributions.Categorical([p for (q, p) in d]))
 end
 
-add_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, +)
-add_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).+n, probs(p1))
-sub_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, -)
-sub_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).-n, probs(p1))
-mult_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, *)
-mult_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1).*n, probs(p1))
-div_dist(p1::CatDist, p2::CatDist) = convolve(p1, p2, /)
-div_dist(p1::CatDist, n::Number) = pmf_from_seq(values(p1)./n, probs(p1))
+add_dist(p1::Pmf, p2::Pmf) = convolve(p1, p2, +)
+add_dist(p1::Pmf, n::Number) = pmf_from_seq(values(p1).+n, probs(p1))
+sub_dist(p1::Pmf, p2::Pmf) = convolve(p1, p2, -)
+sub_dist(p1::Pmf, n::Number) = pmf_from_seq(values(p1).-n, probs(p1))
+mult_dist(p1::Pmf, p2::Pmf) = convolve(p1, p2, *)
+mult_dist(p1::Pmf, n::Number) = pmf_from_seq(values(p1).*n, probs(p1))
+div_dist(p1::Pmf, p2::Pmf) = convolve(p1, p2, /)
+div_dist(p1::Pmf, n::Number) = pmf_from_seq(values(p1)./n, probs(p1))
 
-function dist_op(p1::CatDist, p2::CatDist, func)
+function dist_op(p1::Pmf, p2::Pmf, func)
     vs = vcat(values(p1), values(p2)) |> sort |> unique
     qs = [func(pdf(p1, v), pdf(p2, v)) for v in vs]
     (vs, qs)
 end
-function dist_op(p1::CatDist, n::Number, func)
+function dist_op(p1::Pmf, n::Number, func)
     vs = values(p1)
     qs = func.(probs(p1), n)
     (vs, qs)
 end
-function dist_op(p1::CatDist, vqs::Tuple{Vector, Vector}, func)
+function dist_op(p1::Pmf, vqs::Tuple{Vector, Vector}, func)
     (vs, qs) = vqs
     vs1 = vcat(values(p1), vs) |> sort |> unique
     qs1 = [func(pdf(p1, v), qs[v]) for v in vs]
@@ -404,35 +404,35 @@ function dist_op(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}, func)
     (vsx, qsx)
 end
 
-(+)(p1::CatDist, p2::CatDist) = dist_op(p1, p2, +)
-(+)(p1::CatDist, n::Number) = dist_op(p1, n, +)
-(+)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, +)
+(+)(p1::Pmf, p2::Pmf) = dist_op(p1, p2, +)
+(+)(p1::Pmf, n::Number) = dist_op(p1, n, +)
+(+)(p1::Pmf, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, +)
 (+)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op(vqs, n, +)
 (+)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op(vqs1, vqs2, +)
-(-)(p1::CatDist, p2::CatDist) = dist_op(p1, p2, -)
-(-)(p1::CatDist, n::Number) = dist_op(p1, n, -)
-(-)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, -)
+(-)(p1::Pmf, p2::Pmf) = dist_op(p1, p2, -)
+(-)(p1::Pmf, n::Number) = dist_op(p1, n, -)
+(-)(p1::Pmf, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, -)
 (-)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op(vqs, n, -)
 (-)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op(vqs1, vqs2, -)
-(*)(p1::CatDist, p2::CatDist) = dist_op(p1, p2, *)
-(*)(p1::CatDist, n::Number) = dist_op(p1, n, *)
-(*)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, *)
+(*)(p1::Pmf, p2::Pmf) = dist_op(p1, p2, *)
+(*)(p1::Pmf, n::Number) = dist_op(p1, n, *)
+(*)(p1::Pmf, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, *)
 (*)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op(vqs, n, *)
 (*)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op(vqs1, vqs2, *)
-(/)(p1::CatDist, p2::CatDist) = dist_op(p1, p2, /)
-(/)(p1::CatDist, n::Number) = dist_op(p1, n, /)
-(/)(p1::CatDist, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, /)
+(/)(p1::Pmf, p2::Pmf) = dist_op(p1, p2, /)
+(/)(p1::Pmf, n::Number) = dist_op(p1, n, /)
+(/)(p1::Pmf, vqs::Tuple{Vector, Vector}) = dist_op(p1, vqs, /)
 (/)(vqs::Tuple{Vector, Vector}, n::Number) = dist_op(vqs, n, /)
 (/)(vqs1::Tuple{Vector, Vector}, vqs2::Tuple{Vector, Vector}) = dist_op(vqs1, vqs2, /)
 make_pmf(vqs::Tuple{Vector, Vector}) = pmf_from_seq(vqs[1], normalize(vqs[2]))
 
-function credible_interval(p1::CatDist, x::Number)
+function credible_interval(p1::Pmf, x::Number)
     low = (1.0 - x) / 2.0
     high = 1.0 - low
     quantile(p1, [low, high])
 end
 
-function make_df_from_seq_pmf(seq::Vector{CatDist})
+function make_df_from_seq_pmf(seq::Vector{Pmf})
     a = [[pdf(x, i) for i in values(x)] for x in seq]
     max_len = length.(a) |> maximum
     a1 = [vcat(x, fill(0, max_len - length(x))) for x in a]
@@ -457,7 +457,7 @@ end
 """
 
 """
-function make_mixture_should_work(pmf::CatDist, pmf_seq::Vector{CatDist})::CatDist
+function make_mixture_should_work(pmf::Pmf, pmf_seq::Vector{Pmf})::Pmf
     vs = collect(Iterators.flatten([values(d) for d in pmf_seq])) |> sort |> unique
     m = Distributions.MixtureModel(Distributions.Categorical, [probs(p.dist) for p in pmf_seq], probs(pmf))
     pmf_from_seq(vs, normalize([pdf(m, v+1) for v in vs]))
@@ -476,7 +476,7 @@ end
 
 cdf_from_seq(vs:: Vector) = sort(vs) |> pmf_from_seq |> make_cdf
 
-function make_cdf(pmf::CatDist)
+function make_cdf(pmf::Pmf)
     make_cdf(values(pmf), [cdf(pmf, x) for x in values(pmf)])
 end
 
