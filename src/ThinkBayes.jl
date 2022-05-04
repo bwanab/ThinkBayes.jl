@@ -2,11 +2,11 @@ module ThinkBayes
 
 export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
-    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc,
+    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc, df_to_matrix,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_gamma_pmf, make_normal_pmf, pmf_from_dist,
-    expo_pdf, kde_from_sample, items
+    expo_pdf, kde_from_sample, items, outer, make_joint, visualize_joint
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -17,6 +17,9 @@ export plot, plot!
 
 import Plots: plot, plot!, bar
 
+import Images: colorview
+import ImageTransformations: imresize
+import Colors: RGB
 
 import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
@@ -95,13 +98,15 @@ end
 
 # DataFrame
 
-function loc(df, val)
+function loc(df::AbstractDataFrame, val)
     idx = findfirst(==(val), df.Index)
     if idx === nothing
         return nothing
     end
    df[idx, :]
 end
+
+df_to_matrix(df::AbstractDataFrame) = reduce(hcat, eachcol(df))
 
 # Distributions
 
@@ -463,6 +468,49 @@ function make_mixture_should_work(pmf::Pmf, pmf_seq::Vector{Pmf})::Pmf
     pmf_from_seq(vs, normalize([pdf(m, v+1) for v in vs]))
 end
 
+"""
+outer(f, x, y) where f is a function of two variables like +, *, >, etc
+               x, y are vectors
+        
+does x' f y which produces a matrix of length(y) rows and length(x) columns, then 
+transforms this to a length(x) vector of vectors of the rows.
+
+e.g.
+x = [1,3,5]
+y = [2,4]
+outer(*, x, y) => [[2, 6, 10], [4, 12, 20]]
+"""
+function outer(f, x, y)
+    d = f.(x', y)
+	vals = [vec(d[i,:]) for i in 1:length(y)]
+    reverse(reverse.(vals))
+end
+
+"""
+Exactly like outer(f, x, y) but works with pmfs instead of vectors.
+Returns a DataFrame that contains the results where the columns are the 
+stringified values(y_pmf)
+"""
+function make_joint(f, x_pmf, y_pmf)
+    x_p = probs(x_pmf)
+	y_p = probs(y_pmf)
+	v = outer(f, x_p, y_p)
+	DataFrame(v, string.(values(y_pmf)))
+end
+
+"""
+A simple visualization. 
+TODO: enhancement opportunity!
+"""
+function visualize_joint(joint::DataFrame)
+    M = df_to_matrix(joint)
+    r, c = size(M)
+    M = reshape([M[i, j] for i in r:-1:1 for j in 1:c], r, c)
+    Mx = 1 .- (M * (1 / maximum(M)))
+    M2 = zeros(size(M))
+    fill!(M2, 1.0)
+    imresize(colorview(RGB, Mx, Mx, M2), ratio = 5)
+end
 
 abstract type AbstractDistFunction end
 # CDF
