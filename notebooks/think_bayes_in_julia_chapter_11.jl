@@ -19,6 +19,19 @@ using DataFrames, StatsPlots
 # ╔═╡ 1b872baa-ca5b-11ec-31aa-b359cc37aa04
 md"## Chapter 11 - Comparison"
 
+# ╔═╡ 6b53e7e7-afc9-4ffa-994a-98392d1297c7
+html"""
+<style>
+	main {
+		margin: 0 auto;
+		max-width: 2000px;
+    	padding-left: max(160px, 10%);
+    	padding-right: max(160px, 10%);
+	}
+</style>
+"""
+
+
 # ╔═╡ ca757f1b-cff6-46b1-98b5-bd6a25042cf0
 x = [1, 3, 5]
 
@@ -59,7 +72,7 @@ joint = make_joint(*,prior, prior)
 md"## Visualizing the Joint Distribution"
 
 # ╔═╡ 31b02921-ac32-4333-8352-424164c05265
-visualize_joint(joint)
+visualize_joint(joint, normalize=true)
 
 # ╔═╡ 04593a8c-c378-4f99-905b-dc61a4d4bcbc
 md"## Likelihood"
@@ -68,25 +81,130 @@ md"## Likelihood"
 A_taller = outer(>, values(prior), values(prior))
 
 # ╔═╡ 14f3f366-2741-446c-99f5-d3506c2cd234
-likelihood = DataFrame(A_taller, string.(values(prior)))
+likelihood = Joint(DataFrame(A_taller, string.(values(prior))), string.(values(prior)))
 
 # ╔═╡ 9e81cf89-ab9c-4462-9e24-8546ea35bf03
 visualize_joint(likelihood)
 
 # ╔═╡ 590b6403-aa96-477f-8747-6056fe237772
-posterior = DataFrame(df_to_matrix(joint) .* df_to_matrix(likelihood), string.(values(prior)))
+posterior = DataFrame(normalize(df_to_matrix(joint.df) .* df_to_matrix(likelihood.df)), string.(values(prior)))
 
 # ╔═╡ 9a445bc3-2c17-412b-a4dd-1c281e7dd722
-visualize_joint(posterior)
+visualize_joint(posterior, xs = string.(values(prior)), normalize=true)
 
 # ╔═╡ 49db0e62-af5d-40b1-b479-594354c0a211
 md"## Marginal Distributions"
 
-# ╔═╡ 76ecda71-3943-4834-a9a1-52387da1a139
+# ╔═╡ b1ee65ac-f132-4d5a-94b1-bcba548b650a
+column = posterior[!,"180.0"]
 
+# ╔═╡ 8663c52f-e0ab-42c6-b20c-e0f88697d468
+sum(column)
+
+# ╔═╡ 9421f9d3-33cd-4b77-9084-515af9238ae6
+column_sums = [(c, sum(posterior[!, c])) for c in names(posterior)]
+
+# ╔═╡ e265b1d2-33bf-431a-827b-0ebcb384301e
+marginal_A = pmf_from_tuples(column_sums);
+
+# ╔═╡ b7ee6f3c-be26-464b-b484-338143f0628d
+plot(marginal_A)
+
+# ╔═╡ 09143c94-efec-467e-83f0-580d35035400
+row_sums = sum(df_to_matrix(posterior), dims=2);
+
+# ╔═╡ 65090587-9061-448e-ab4b-495f5d261cb1
+marginal_B = pmf_from_seq(names(posterior), vec(row_sums));
+
+# ╔═╡ e2e8f155-3465-481d-bb48-37dca0c12d77
+plot(marginal_B)
+
+# ╔═╡ 49448fcf-49e1-44d0-86d1-a60eb0330770
+function marginal(joint, dim)
+	sums = sum(df_to_matrix(joint), dims=dim)
+	pmf_from_seq(parse.(Float64, names(joint)), vec(sums))
+end
+
+# ╔═╡ e8a44221-f3e2-4df9-bb0b-c73e6f6066b8
+marg_A = marginal(posterior, 1);
+
+# ╔═╡ 11a135b5-4275-4286-804d-5c895d95799b
+marg_B = marginal(posterior, 2);
+
+# ╔═╡ bb54c318-284f-4547-8af3-f0e37ad88fb6
+begin
+	plot(prior, label="prior")
+	plot!(marg_A, label="posterior A")
+	plot!(marg_B, label="posterior B")
+end
+
+# ╔═╡ b01831ef-517d-4c4a-9acd-d1d6273e091a
+mean(prior), mean(marg_A), mean(marg_B)
+
+# ╔═╡ 8ad5a1ad-b62e-4982-aee1-78b5a24982f4
+std(prior), std(marg_A), std(marg_B)
+
+# ╔═╡ b8d21789-4f2a-4891-8263-1036a929c5dd
+md"## Conditional Posteriors"
+
+# ╔═╡ cbab5bb8-b9d7-414e-ad72-381b2afe65d4
+column_170 = posterior[!, "170.0"]
+
+# ╔═╡ 7e1fdc4b-e1e2-4036-8d2d-2fed440dedc7
+cond_B = pmf_from_seq(values(marg_B), normalize(column_170));
+
+# ╔═╡ d59d33f6-adc7-414b-b11c-f3edbe8441cd
+begin
+	plot(prior, label="prior")
+	plot!(marg_B, label="posterior B")
+	plot!(cond_B, label="conditional posterior B")
+end
+
+# ╔═╡ abb26a6f-4347-4552-a770-687335d0ac40
+md"""## Exercises
+_exercise 11.1_"""
+
+# ╔═╡ 7b2003f0-ddd3-4af2-9fe8-008c53e16d2f
+begin
+	# find the index of 180 in the vaules of prior, then get that row from posterior.
+	idx = first(findall(x->x == 180.0, values(prior)))
+	vals = df_to_matrix(posterior)[idx, :] 
+	cond_A = pmf_from_seq(values(marg_A), normalize(vals));
+end;
+
+# ╔═╡ db018953-b2d2-4c02-8b1a-80d37a57a0ae
+begin
+	plot(marg_A, label="posterior A")
+	plot!(cond_A, label="conditional posterior A")
+end
+
+# ╔═╡ a65bca47-5479-4aff-bf46-fbc64522d05d
+md"_exercise 11.2_"
+
+# ╔═╡ 630aadaa-07b1-4562-b30b-e67cdb72443c
+md"_exercise 11.3_"
+
+# ╔═╡ 5e06a69f-b541-402c-bbe3-4c752764e5e6
+prior_A = make_normal_pmf(range(1300, 1900, 100), mu=1600.0, sigma=100.0);
+
+# ╔═╡ 53a5f782-af57-4fc4-8497-a66dc45284f6
+prior_B = make_normal_pmf(range(1500, 2100, 100), mu=1800.0, sigma=100.0);
+
+# ╔═╡ 89bb5b0c-00ad-433c-b028-f0bf29621d20
+begin
+	plot(prior_A, label="prior A")
+	plot!(prior_B, label="prior B")
+end
+
+# ╔═╡ 73a2d469-904a-4284-af79-4957155d11ef
+rating_joint = make_joint(*, prior_A, prior_B)
+
+# ╔═╡ 42b9cb1b-3f2c-4c1c-871d-d8ad5a123488
+visualize_joint(rating_joint, xaxis="A Rating", yaxis="B Rating")
 
 # ╔═╡ Cell order:
 # ╟─1b872baa-ca5b-11ec-31aa-b359cc37aa04
+# ╟─6b53e7e7-afc9-4ffa-994a-98392d1297c7
 # ╠═678a4dce-6f32-457a-b9c7-30c327991d8a
 # ╠═6670ce99-8c18-4094-93a3-14afdb164e23
 # ╠═ca757f1b-cff6-46b1-98b5-bd6a25042cf0
@@ -110,4 +228,31 @@ md"## Marginal Distributions"
 # ╠═590b6403-aa96-477f-8747-6056fe237772
 # ╠═9a445bc3-2c17-412b-a4dd-1c281e7dd722
 # ╟─49db0e62-af5d-40b1-b479-594354c0a211
-# ╠═76ecda71-3943-4834-a9a1-52387da1a139
+# ╠═b1ee65ac-f132-4d5a-94b1-bcba548b650a
+# ╠═8663c52f-e0ab-42c6-b20c-e0f88697d468
+# ╠═9421f9d3-33cd-4b77-9084-515af9238ae6
+# ╠═e265b1d2-33bf-431a-827b-0ebcb384301e
+# ╠═b7ee6f3c-be26-464b-b484-338143f0628d
+# ╠═09143c94-efec-467e-83f0-580d35035400
+# ╠═65090587-9061-448e-ab4b-495f5d261cb1
+# ╠═e2e8f155-3465-481d-bb48-37dca0c12d77
+# ╠═49448fcf-49e1-44d0-86d1-a60eb0330770
+# ╠═e8a44221-f3e2-4df9-bb0b-c73e6f6066b8
+# ╠═11a135b5-4275-4286-804d-5c895d95799b
+# ╠═bb54c318-284f-4547-8af3-f0e37ad88fb6
+# ╠═b01831ef-517d-4c4a-9acd-d1d6273e091a
+# ╠═8ad5a1ad-b62e-4982-aee1-78b5a24982f4
+# ╟─b8d21789-4f2a-4891-8263-1036a929c5dd
+# ╠═cbab5bb8-b9d7-414e-ad72-381b2afe65d4
+# ╠═7e1fdc4b-e1e2-4036-8d2d-2fed440dedc7
+# ╠═d59d33f6-adc7-414b-b11c-f3edbe8441cd
+# ╟─abb26a6f-4347-4552-a770-687335d0ac40
+# ╠═7b2003f0-ddd3-4af2-9fe8-008c53e16d2f
+# ╠═db018953-b2d2-4c02-8b1a-80d37a57a0ae
+# ╟─a65bca47-5479-4aff-bf46-fbc64522d05d
+# ╟─630aadaa-07b1-4562-b30b-e67cdb72443c
+# ╠═5e06a69f-b541-402c-bbe3-4c752764e5e6
+# ╠═53a5f782-af57-4fc4-8497-a66dc45284f6
+# ╠═89bb5b0c-00ad-433c-b028-f0bf29621d20
+# ╠═73a2d469-904a-4284-af79-4957155d11ef
+# ╠═42b9cb1b-3f2c-4c1c-871d-d8ad5a123488

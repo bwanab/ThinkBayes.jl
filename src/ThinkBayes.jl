@@ -5,8 +5,9 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc, df_to_matrix,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
-    make_gamma_pmf, make_normal_pmf, pmf_from_dist,
-    expo_pdf, kde_from_sample, items, outer, make_joint, visualize_joint
+    make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
+    expo_pdf, kde_from_sample, items, outer, 
+    Joint, make_joint, visualize_joint
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -15,7 +16,7 @@ export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insup
 # from Plot:
 export plot, plot!
 
-import Plots: plot, plot!, bar
+import Plots: plot, plot!, bar, heatmap, heatmap!
 
 import Images: colorview
 import ImageTransformations: imresize
@@ -200,6 +201,10 @@ function pmf_from_seq(seq; counts=nothing)::Pmf
     g=groupby(df, :a)
     d=[(first(x).a, nrow(x)/len) for x in g]
     Pmf([x[1] for x in d], Distributions.Categorical([x[2] for x in d]))
+end
+
+function pmf_from_tuples(seq)
+    pmf_from_seq([x for (x, y) in seq], [y for (x,y) in seq])
 end
 
 function make_poisson_pmf(lamda, vals)
@@ -486,6 +491,11 @@ function outer(f, x, y)
     reverse(reverse.(vals))
 end
 
+struct Joint
+    df::DataFrame
+    xs::Vector 
+end
+
 """
 Exactly like outer(f, x, y) but works with pmfs instead of vectors.
 Returns a DataFrame that contains the results where the columns are the 
@@ -495,21 +505,46 @@ function make_joint(f, x_pmf, y_pmf)
     x_p = probs(x_pmf)
 	y_p = probs(y_pmf)
 	v = outer(f, x_p, y_p)
-	DataFrame(v, string.(values(y_pmf)))
+	Joint(DataFrame(v, string.(values(y_pmf))), string.(values(x_pmf)))
 end
 
 """
 A simple visualization. 
 TODO: enhancement opportunity!
 """
-function visualize_joint(joint::DataFrame)
-    M = df_to_matrix(joint)
+visualize_joint_old(joint::DataFrame) = visualize_joint(df_to_matrix(joint))
+
+function visualize_joint_old(M::Matrix{Float64})
     r, c = size(M)
+    # flip 90° right
     M = reshape([M[i, j] for i in r:-1:1 for j in 1:c], r, c)
     Mx = 1 .- (M * (1 / maximum(M)))
     M2 = zeros(size(M))
     fill!(M2, 1.0)
     imresize(colorview(RGB, Mx, Mx, M2), ratio = 5)
+end
+
+function visualize_joint(joint::Joint; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false)
+    M = df_to_matrix(joint.df)
+    ys = names(joint.df)
+    xs = joint.xs
+    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize)
+end
+
+function visualize_joint(df::DataFrame; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false)
+    M = df_to_matrix(df)
+    ys = names(df)
+    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize)
+end
+
+function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false)
+    rows,cols = size(M)
+    txs = xs === missing ? (1:rows) : parse.(Float64, xs)
+    tys = ys === missing ? (1:cols) : parse.(Float64, ys)
+    if normalize
+        M = M .* (1 / maximum(M))
+    end
+    heatmap(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis)
 end
 
 abstract type AbstractDistFunction end
