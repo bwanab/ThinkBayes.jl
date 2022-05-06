@@ -9,8 +9,6 @@ begin
 	import Pkg
 	Pkg.develop(path="/Users/williamallen/src/ThinkBayes.jl")
 	using ThinkBayes
-	#Pkg.add("Colors")
-	#Pkg.add("ImageTransformations")
 end
 
 # ╔═╡ 6670ce99-8c18-4094-93a3-14afdb164e23
@@ -185,10 +183,10 @@ md"_exercise 11.2_"
 md"_exercise 11.3_"
 
 # ╔═╡ 5e06a69f-b541-402c-bbe3-4c752764e5e6
-prior_A = make_normal_pmf(range(1300, 1900, 100), mu=1600.0, sigma=100.0);
+prior_A = make_normal_pmf(1300:10:1890, mu=1600.0, sigma=100.0)
 
 # ╔═╡ 53a5f782-af57-4fc4-8497-a66dc45284f6
-prior_B = make_normal_pmf(range(1500, 2100, 100), mu=1800.0, sigma=100.0);
+prior_B = make_normal_pmf(1500:10:2090, mu=1800.0, sigma=100.0)
 
 # ╔═╡ 89bb5b0c-00ad-433c-b028-f0bf29621d20
 begin
@@ -197,10 +195,54 @@ begin
 end
 
 # ╔═╡ 73a2d469-904a-4284-af79-4957155d11ef
-rating_joint = make_joint(*, prior_A, prior_B)
+joint_elo = make_joint(*, prior_A, prior_B)
+
+# ╔═╡ 2cf76a80-15aa-40c7-a370-694c76298fd9
+size(joint_elo.df)
 
 # ╔═╡ 42b9cb1b-3f2c-4c1c-871d-d8ad5a123488
-visualize_joint(rating_joint, xaxis="A Rating", yaxis="B Rating")
+visualize_joint(joint_elo, xaxis="A Rating", yaxis="B Rating")
+
+# ╔═╡ 02ebb04c-1ab8-4a17-beff-fff62fe6deb1
+begin
+	X = values(prior_A)
+	Y = values(prior_B)
+	diffs = outer(-, X, Y)
+	diff = reduce(hcat, diffs)
+end;
+
+# ╔═╡ 11f09c1d-4129-42e1-9c37-6892eff6b64b
+
+
+# ╔═╡ f038c99c-b31f-41f3-ae7a-ec6621bb30bc
+a = 1 ./ (1 .+ 10 .^(-diff ./ 400));
+
+# ╔═╡ 3d883128-bdde-4f47-9c63-f84241f567e1
+visualize_joint(a, xs=string.(values(prior_A)), ys=string.(values(prior_B)))
+
+# ╔═╡ 185588a5-ec77-4f6d-8793-4e4d87e360a6
+posterior_elo = Joint(DataFrame(normalize(df_to_matrix(joint_elo.df) .* a), string.(values(prior_B))), string.(values(prior_A)))
+
+# ╔═╡ 2af4f254-12ac-48ae-85c6-05c5418d2ea1
+visualize_joint(posterior_elo)
+
+# ╔═╡ 7e08acef-7c36-4bd7-88da-3f0cb4a158ad
+marginal_A_elo = marginal(posterior_elo.df, 2);
+
+# ╔═╡ c98053a9-090c-417b-a02b-f0fba219af22
+marginal_B_elo = marginal(posterior_elo.df, 1);
+
+# ╔═╡ 36467d5a-6b00-4a9e-8511-5b06e568eba2
+begin
+	plot(marginal_A_elo, label="posterior A")
+	plot!(marginal_B_elo, label="posterior B")
+end
+
+# ╔═╡ 0f95cfb4-c178-4cdd-99be-017200089be8
+mean(marginal_A_elo), mean(marginal_B_elo)
+
+# ╔═╡ 937f913d-dec4-4607-989a-de5fc88bae8e
+x .+ 3
 
 # ╔═╡ Cell order:
 # ╟─1b872baa-ca5b-11ec-31aa-b359cc37aa04
@@ -255,4 +297,16 @@ visualize_joint(rating_joint, xaxis="A Rating", yaxis="B Rating")
 # ╠═53a5f782-af57-4fc4-8497-a66dc45284f6
 # ╠═89bb5b0c-00ad-433c-b028-f0bf29621d20
 # ╠═73a2d469-904a-4284-af79-4957155d11ef
+# ╠═2cf76a80-15aa-40c7-a370-694c76298fd9
 # ╠═42b9cb1b-3f2c-4c1c-871d-d8ad5a123488
+# ╠═02ebb04c-1ab8-4a17-beff-fff62fe6deb1
+# ╠═11f09c1d-4129-42e1-9c37-6892eff6b64b
+# ╠═f038c99c-b31f-41f3-ae7a-ec6621bb30bc
+# ╠═3d883128-bdde-4f47-9c63-f84241f567e1
+# ╠═185588a5-ec77-4f6d-8793-4e4d87e360a6
+# ╠═2af4f254-12ac-48ae-85c6-05c5418d2ea1
+# ╠═7e08acef-7c36-4bd7-88da-3f0cb4a158ad
+# ╠═c98053a9-090c-417b-a02b-f0fba219af22
+# ╠═36467d5a-6b00-4a9e-8511-5b06e568eba2
+# ╠═0f95cfb4-c178-4cdd-99be-017200089be8
+# ╠═937f913d-dec4-4607-989a-de5fc88bae8e
