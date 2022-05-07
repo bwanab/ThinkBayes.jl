@@ -79,28 +79,28 @@ md"## Likelihood"
 A_taller = outer(>, values(prior), values(prior))
 
 # ╔═╡ 14f3f366-2741-446c-99f5-d3506c2cd234
-likelihood = Joint(DataFrame(A_taller, string.(values(prior))), string.(values(prior)))
+likelihood = Joint(A_taller, values(prior), values(prior))
 
 # ╔═╡ 9e81cf89-ab9c-4462-9e24-8546ea35bf03
 visualize_joint(likelihood)
 
 # ╔═╡ 590b6403-aa96-477f-8747-6056fe237772
-posterior = DataFrame(normalize(df_to_matrix(joint.df) .* df_to_matrix(likelihood.df)), string.(values(prior)))
+posterior = Joint(normalize(joint.M .* likelihood.M), values(prior), values(prior))
 
 # ╔═╡ 9a445bc3-2c17-412b-a4dd-1c281e7dd722
-visualize_joint(posterior, xs = string.(values(prior)), normalize=true)
+visualize_joint(posterior, normalize=true)
 
 # ╔═╡ 49db0e62-af5d-40b1-b479-594354c0a211
 md"## Marginal Distributions"
 
 # ╔═╡ b1ee65ac-f132-4d5a-94b1-bcba548b650a
-column = posterior[!,"180.0"]
+col = column(posterior, 180.0)
 
 # ╔═╡ 8663c52f-e0ab-42c6-b20c-e0f88697d468
-sum(column)
+sum(col)
 
 # ╔═╡ 9421f9d3-33cd-4b77-9084-515af9238ae6
-column_sums = [(c, sum(posterior[!, c])) for c in names(posterior)]
+column_sums = [(c, sum(column(posterior, c))) for c in posterior.xs]
 
 # ╔═╡ e265b1d2-33bf-431a-827b-0ebcb384301e
 marginal_A = pmf_from_tuples(column_sums);
@@ -109,18 +109,18 @@ marginal_A = pmf_from_tuples(column_sums);
 plot(marginal_A)
 
 # ╔═╡ 09143c94-efec-467e-83f0-580d35035400
-row_sums = sum(df_to_matrix(posterior), dims=2);
+row_sums = [(r, sum(row(posterior, r))) for r in posterior.ys]
 
 # ╔═╡ 65090587-9061-448e-ab4b-495f5d261cb1
-marginal_B = pmf_from_seq(names(posterior), vec(row_sums));
+marginal_B = pmf_from_tuples(row_sums)
 
 # ╔═╡ e2e8f155-3465-481d-bb48-37dca0c12d77
 plot(marginal_B)
 
 # ╔═╡ 49448fcf-49e1-44d0-86d1-a60eb0330770
 function marginal(joint, dim)
-	sums = sum(df_to_matrix(joint), dims=dim)
-	pmf_from_seq(parse.(Float64, names(joint)), vec(sums))
+	sums = sum(joint.M, dims=dim)
+	pmf_from_seq(dim==1 ? joint.xs : joint.ys, vec(sums))
 end
 
 # ╔═╡ e8a44221-f3e2-4df9-bb0b-c73e6f6066b8
@@ -146,7 +146,7 @@ std(prior), std(marg_A), std(marg_B)
 md"## Conditional Posteriors"
 
 # ╔═╡ cbab5bb8-b9d7-414e-ad72-381b2afe65d4
-column_170 = posterior[!, "170.0"]
+column_170 = column(posterior, 170.0)
 
 # ╔═╡ 7e1fdc4b-e1e2-4036-8d2d-2fed440dedc7
 cond_B = pmf_from_seq(values(marg_B), normalize(column_170));
@@ -165,8 +165,7 @@ _exercise 11.1_"""
 # ╔═╡ 7b2003f0-ddd3-4af2-9fe8-008c53e16d2f
 begin
 	# find the index of 180 in the vaules of prior, then get that row from posterior.
-	idx = first(findall(x->x == 180.0, values(prior)))
-	vals = df_to_matrix(posterior)[idx, :] 
+	vals = row(posterior, 180.0)
 	cond_A = pmf_from_seq(values(marg_A), normalize(vals));
 end;
 
@@ -198,7 +197,7 @@ end
 joint_elo = make_joint(*, prior_A, prior_B)
 
 # ╔═╡ 2cf76a80-15aa-40c7-a370-694c76298fd9
-size(joint_elo.df)
+size(joint_elo.M)
 
 # ╔═╡ 42b9cb1b-3f2c-4c1c-871d-d8ad5a123488
 visualize_joint(joint_elo, xaxis="A Rating", yaxis="B Rating")
@@ -215,22 +214,22 @@ end;
 
 
 # ╔═╡ f038c99c-b31f-41f3-ae7a-ec6621bb30bc
-a = 1 ./ (1 .+ 10 .^(-diff ./ 400));
+a = 1 ./ (1 .+ 10 .^(-diffs ./ 400));
 
 # ╔═╡ 3d883128-bdde-4f47-9c63-f84241f567e1
-visualize_joint(a, xs=string.(values(prior_A)), ys=string.(values(prior_B)))
+visualize_joint(a, xs=X, ys=Y)
 
 # ╔═╡ 185588a5-ec77-4f6d-8793-4e4d87e360a6
-posterior_elo = Joint(DataFrame(normalize(df_to_matrix(joint_elo.df) .* a), string.(values(prior_B))), string.(values(prior_A)))
+posterior_elo = Joint(normalize(joint_elo.M .* a), X, Y);
 
 # ╔═╡ 2af4f254-12ac-48ae-85c6-05c5418d2ea1
 visualize_joint(posterior_elo)
 
 # ╔═╡ 7e08acef-7c36-4bd7-88da-3f0cb4a158ad
-marginal_A_elo = marginal(posterior_elo.df, 2);
+marginal_A_elo = marginal(posterior_elo, 1);
 
 # ╔═╡ c98053a9-090c-417b-a02b-f0fba219af22
-marginal_B_elo = marginal(posterior_elo.df, 1);
+marginal_B_elo = marginal(posterior_elo, 2);
 
 # ╔═╡ 36467d5a-6b00-4a9e-8511-5b06e568eba2
 begin
@@ -242,7 +241,7 @@ end
 mean(marginal_A_elo), mean(marginal_B_elo)
 
 # ╔═╡ 937f913d-dec4-4607-989a-de5fc88bae8e
-x .+ 3
+std(marginal_A_elo), std(marginal_B_elo)
 
 # ╔═╡ Cell order:
 # ╟─1b872baa-ca5b-11ec-31aa-b359cc37aa04

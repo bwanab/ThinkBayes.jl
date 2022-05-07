@@ -87,5 +87,10 @@ using Test
     pdf_beta = pmf_from_dist(LinRange(0, 1, 50), beta_dist)
     @test mean(pdf_beta) ≈ 0.5
     @test round(std(pdf_beta), digits=5) ≈ 0.22342
+    x_pmf = make_normal_pmf(range(-5, 5, 50))
+    y_pmf = make_normal_pmf(range(0, 10, 50), mu=5.0, sigma=2.0)
+    j = make_joint(*, x_pmf, y_pmf)
+    @test round(sum(column(j, -0.102)), digits=4) ≈ 0.081
+    @test round(sum(row(j, 4.898)), digits=4) ≈ 0.0411
 end
 end

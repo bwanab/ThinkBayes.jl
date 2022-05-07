@@ -8,4 +8,6 @@ Having gone down this path, I'm very exited about Julia and it's ecosystem. Plut
 
 There are some rough spots. DataFrames in Julia aren't as powerful as Pandas, but this is apparently by design. However, it does make for some impedence mismatching when trying to replicate python code that makes heavy use of Pandas.
 
-Please note that as of now this repository only supports the first ten chapters of Think Bayes 2. I'll update this notice as I make more progress.
+Notes:
+1. As of now this repository only supports the first eleven chapters of Think Bayes 2. I'll update this notice as I make more progress.
+2. The first 9 notebook chapters are jupyter notebooks. The remaining chapters are pluto notebooks. My intention is to redo the jupyter notebooks to pluto, but....
