@@ -29,7 +29,7 @@ df.Species2 = first.(split.(df.Species))
 # ╔═╡ cfbc5e96-3dfc-4ca2-8ecd-bc9226eaeb18
 function make_cdf_map(df, colname; by="Species2")
 	gd = groupby(df, [by]);
-	d = [(first(g).Species2, g[!, colname]) for g in gd]
+	d = [(first(g)[by], g[!, colname]) for g in gd]
 	Dict([(s, make_cdf(pmf_from_seq(sort([v for v in vals if v !== missing])))) for (s, vals) in d])
 end
 
@@ -66,7 +66,7 @@ md"## Normal Models"
 
 # ╔═╡ e875a719-28ef-4461-940a-a6129bb385e1
 function make_norm_map(df, colname; by="Species2")
-	m = make_cdf_map(df, colname)
+	m = make_cdf_map(df, colname, by=by)
 	Dict([(k, Normal(mean(v), std(v))) for (k, v) in pairs(m)])
 end
 
@@ -328,6 +328,85 @@ begin
 	accuracy(df)
 end
 
+# ╔═╡ e2f2a9fe-4f64-4a70-84d3-572cac014868
+md"## Exercises 
+_exercise 12.1_"
+
+# ╔═╡ 38775145-b27e-464a-9137-9095d9855c16
+names(df)
+
+# ╔═╡ aeb64211-eca7-4d90-8328-8e96ef327723
+dropmissing!(df, ["Culmen Depth (mm)", "Body Mass (g)", "Sex"])
+
+# ╔═╡ 7d0903a9-855f-41cc-9f66-223938f65e6e
+culmen_depth_map = make_norm_map(df, "Culmen Depth (mm)")
+
+# ╔═╡ 4d65bf3e-0828-4b5c-a489-3748f56e6389
+body_mass_map = make_norm_map(df, "Body Mass (g)")
+
+# ╔═╡ 9f139f67-16bc-45f9-83b6-1e631e448269
+begin
+	col_names2 = ["Flipper Length (mm)", "Culmen Length (mm)", "Culmen Depth (mm)", "Body Mass (g)"]
+	norm_maps2 = [flipper_map, culmen_map, culmen_depth_map, body_mass_map]
+end
+
+# ╔═╡ d5626831-3150-4f67-9232-2af0c56bb00a
+begin
+	posteriors4 = [update_naive(prior, values(df[r, col_names2]), norm_maps2) for r in 1:nrow(df) if !any(isequal.(missing, values(df[r, col_names2])))]
+	probs3 = max_prob.(posteriors4)
+end
+
+# ╔═╡ 0cf40886-7d07-4a73-90d3-02b2047429be
+df.Classification = max_prob.(posteriors4)
+
+# ╔═╡ 49e6a657-322a-4743-b2d4-0d33808c2283
+accuracy(df)
+
+# ╔═╡ 2f77839e-92f6-4d38-9bd5-cdf652cc284d
+md"_exercise 12.2_"
+
+# ╔═╡ 6db2e6b4-63d3-45c1-98fc-865368a49672
+begin
+	gd = groupby(df, "Species2")
+	adelie = gd[1]
+end
+
+# ╔═╡ 66be901e-ec13-44e1-a5c6-72c321f3a0c6
+plot_cdfs(adelie, "Culmen Length (mm)", by="Sex")
+
+# ╔═╡ 84c226b2-cf78-493d-b8f0-ca7c7dc60c79
+plot_cdfs(adelie, "Flipper Length (mm)", by="Sex")
+
+
+# ╔═╡ 9a2561e2-0662-4ee1-981f-0f925d3145dc
+plot_cdfs(adelie, "Culmen Depth (mm)", by="Sex")
+
+# ╔═╡ 13eed2d4-42aa-420b-b163-bec26f360867
+plot_cdfs(adelie, "Body Mass (g)", by="Sex")
+
+# ╔═╡ 8765f6f3-d3b3-4f09-8c3f-ec1735ebadef
+adelie_body_mass_map = make_norm_map(adelie, "Body Mass (g)", by="Sex")
+
+# ╔═╡ 470c310f-e88f-4a9c-8263-abd2b313b07d
+begin
+	norm_maps3 = [adelie_body_mass_map]
+	col_names3 = ["Body Mass (g)"]
+	prior3 = pmf_from_seq(collect(keys(adelie_body_mass_map)))
+	posteriors5 = [update_naive(prior3, values(df[r, col_names3]), norm_maps3) for r in 1:nrow(adelie) if !any(isequal.(missing, values(adelie[r, col_names3])))]
+end
+
+# ╔═╡ 7b8c7abe-015e-4ab1-a84b-e227af91c3c5
+ adelie.Sex_classification = max_prob.(posteriors5)
+
+# ╔═╡ 3736463e-612d-4d23-b6f4-692a870091ce
+right_sex = adelie.Sex_classification .== adelie.Sex
+
+# ╔═╡ 6d9dbb1c-1620-488b-ad48-65054c8c5d90
+md"Hard to believe, but it appears to be 100% accurate!"
+
+# ╔═╡ 3e6a6f17-71d4-4fda-9fd5-ba5d0d88b11b
+sum(right_sex) / nrow(adelie)
+
 # ╔═╡ Cell order:
 # ╟─8d10dd3f-4580-49d6-857e-885cf6077266
 # ╠═cafc7577-2a2a-43da-8514-20569cc30160
@@ -388,3 +467,24 @@ end
 # ╟─357bf6ab-51c8-47c4-846f-e74881107c17
 # ╠═f4d84625-1cdf-421d-8951-0a3b915d649c
 # ╠═494a72d7-536a-404f-b79b-b76df69e89d6
+# ╟─e2f2a9fe-4f64-4a70-84d3-572cac014868
+# ╠═38775145-b27e-464a-9137-9095d9855c16
+# ╠═aeb64211-eca7-4d90-8328-8e96ef327723
+# ╠═7d0903a9-855f-41cc-9f66-223938f65e6e
+# ╠═4d65bf3e-0828-4b5c-a489-3748f56e6389
+# ╠═9f139f67-16bc-45f9-83b6-1e631e448269
+# ╠═d5626831-3150-4f67-9232-2af0c56bb00a
+# ╠═0cf40886-7d07-4a73-90d3-02b2047429be
+# ╠═49e6a657-322a-4743-b2d4-0d33808c2283
+# ╟─2f77839e-92f6-4d38-9bd5-cdf652cc284d
+# ╠═6db2e6b4-63d3-45c1-98fc-865368a49672
+# ╠═66be901e-ec13-44e1-a5c6-72c321f3a0c6
+# ╠═84c226b2-cf78-493d-b8f0-ca7c7dc60c79
+# ╠═9a2561e2-0662-4ee1-981f-0f925d3145dc
+# ╠═13eed2d4-42aa-420b-b163-bec26f360867
+# ╠═8765f6f3-d3b3-4f09-8c3f-ec1735ebadef
+# ╠═470c310f-e88f-4a9c-8263-abd2b313b07d
+# ╠═7b8c7abe-015e-4ab1-a84b-e227af91c3c5
+# ╠═3736463e-612d-4d23-b6f4-692a870091ce
+# ╟─6d9dbb1c-1620-488b-ad48-65054c8c5d90
+# ╠═3e6a6f17-71d4-4fda-9fd5-ba5d0d88b11b
