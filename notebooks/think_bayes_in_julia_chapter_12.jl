@@ -37,7 +37,7 @@ end
 cdf_map = make_cdf_map(df, "Culmen Length (mm)");
 
 # ╔═╡ c1a235a7-8668-46a5-a3b4-dc752b7c9110
-function plot_cdfs(df, colname; by="Species2")
+function plot_cdfs_old(df, colname; by="Species2")
 	function p(i, k, cdf_map)
 		if i == 1
 			return plot(cdf_map[k], label=k)
@@ -47,6 +47,16 @@ function plot_cdfs(df, colname; by="Species2")
 	end
 	cdf_map = make_cdf_map(df, colname, by=by)
 	last([p(i, k, cdf_map) for (i, k) in enumerate(keys(cdf_map))])
+end
+
+# ╔═╡ b5ad9881-ed29-43f5-ab99-2015428cf87f
+function plot_cdfs(df, colname; by="Species2")
+	cdf_map = make_cdf_map(df, colname, by=by)
+	plot()
+	for k in keys(cdf_map)
+		plot!(cdf_map[k], label=k)
+	end
+	plot!()	
 end
 
 # ╔═╡ 3d36c6b0-80dc-48ad-8794-2d9c3975fa30
@@ -160,7 +170,7 @@ accuracy(df)
 md"## Joint Distributions"
 
 # ╔═╡ 978f66ce-b020-4857-8e6e-f0f431434d66
-function scatterplot(df, var1, var2; by="Species2", all_secondary=false)
+function scatterplot_old(df, var1, var2; by="Species2", all_secondary=false)
 	function p(i, d1, d2)
 		if i == 1 && !all_secondary
 			return scatter(d1[2], d2[2], label=d1[1])
@@ -172,6 +182,23 @@ function scatterplot(df, var1, var2; by="Species2", all_secondary=false)
 	d1 = [(first(g).Species2, collect(g[!, var1])) for g in gd]
 	d2 = [(first(g).Species2, collect(g[!, var2])) for g in gd]
 	last([p(i, x, y) for (i, (x, y)) in enumerate(zip(d1,d2))])
+end
+
+# ╔═╡ a463ff3a-0adc-4d71-b36b-66986e9472a7
+function scatterplot!(df, var1, var2; by="Species2")
+	gd = groupby(df, [by]);
+	d1 = [(first(g).Species2, collect(g[!, var1])) for g in gd]
+	d2 = [(first(g).Species2, collect(g[!, var2])) for g in gd]
+	for (x, y) in zip(d1, d2)
+		scatter!(x[2], y[2], label=x[1])
+	end
+	plot!()
+end
+
+# ╔═╡ 945aa864-359b-4cd2-a032-a8111100d268
+function scatterplot(df, var1, var2; by="Species2")
+	plot()
+	scatterplot!(df, var1, var2, by=by)
 end
 
 # ╔═╡ 3d3e0438-1311-44ed-9f2e-7259383cb4d0
@@ -220,7 +247,7 @@ begin
 	visualize_joint(joint_map["Adelie"], is_contour=true)
 	visualize_joint!(joint_map["Gentoo"], is_contour=true)
 	visualize_joint!(joint_map["Chinstrap"], is_contour=true)
-	scatterplot(df, col_names[1], col_names[2], all_secondary=true)
+	scatterplot!(df, col_names[1], col_names[2])
 end
 
 # ╔═╡ c0526259-d963-4d6f-9fdf-cd3ed09deb1f
@@ -290,26 +317,15 @@ end
 
 # ╔═╡ 45f8aa52-ffd7-4da7-8c00-b8ff1ec66272
 begin
-	viz = Dict()
+	plot()
 	for (i, species) in enumerate(hypos)
 		norm1 = flipper_map[species]
 		norm2 = culmen_map[species]
 		multinorm = multinorm_map[species]
 		M, pmf1, pmf2 = make_multi_joint(norm1, norm2, multinorm)
-		viz[species] = (M, values(pmf1), values(pmf2))
+		visualize_joint!(M, xs=values(pmf1), ys=values(pmf2), alpha=1.0, is_contour=true)
 	end
-	function vj(s, fst)
-		densities, xs, ys = viz[s]
-		if fst
-			visualize_joint(densities, xs=xs, ys=ys, alpha=1.0, is_contour=true)
-		else
-			visualize_joint!(densities, xs=xs, ys=ys, alpha=1.0, is_contour=true)
-		end
-	end
-	vj("Adelie", true)
-	vj("Gentoo", false)
-	vj("Chinstrap", false)
-	scatterplot(df, var1, var2, all_secondary=true)
+	scatterplot!(df, var1, var2)
 end
 
 # ╔═╡ 357bf6ab-51c8-47c4-846f-e74881107c17
@@ -368,7 +384,9 @@ md"_exercise 12.2_"
 # ╔═╡ 6db2e6b4-63d3-45c1-98fc-865368a49672
 begin
 	gd = groupby(df, "Species2")
-	adelie = gd[1]
+	n = 2
+	adelie = gd[n]
+	name = first(gd[n]).Species2
 end
 
 # ╔═╡ 66be901e-ec13-44e1-a5c6-72c321f3a0c6
@@ -387,13 +405,28 @@ plot_cdfs(adelie, "Body Mass (g)", by="Sex")
 # ╔═╡ 8765f6f3-d3b3-4f09-8c3f-ec1735ebadef
 adelie_body_mass_map = make_norm_map(adelie, "Body Mass (g)", by="Sex")
 
+# ╔═╡ 332acf48-7d32-47ee-8093-7015d0a42435
+adelie_culmen_length_map = make_norm_map(adelie, "Culmen Length (mm)", by="Sex")
+
+# ╔═╡ bc16dd93-8d42-45a8-bf23-0e47d37010fa
+adelie_flipper_length_map = make_norm_map(adelie, "Flipper Length (mm)", by="Sex")
+
+# ╔═╡ 75b57167-b481-4cde-a1d2-9ee0a3c84e72
+adelie_culmen_depth_map = make_norm_map(adelie, "Culmen Depth (mm)", by="Sex")
+
 # ╔═╡ 470c310f-e88f-4a9c-8263-abd2b313b07d
 begin
-	norm_maps3 = [adelie_body_mass_map]
-	col_names3 = ["Body Mass (g)"]
+	norm_maps3 = [adelie_body_mass_map, 
+		adelie_culmen_length_map, 
+		adelie_culmen_depth_map,
+	    adelie_flipper_length_map]
+	col_names3 = ["Body Mass (g)", "Culmen Length (mm)", "Culmen Depth (mm)", "Flipper Length (mm)"]
 	prior3 = pmf_from_seq(collect(keys(adelie_body_mass_map)))
-	posteriors5 = [update_naive(prior3, values(df[r, col_names3]), norm_maps3) for r in 1:nrow(adelie) if !any(isequal.(missing, values(adelie[r, col_names3])))]
+	posteriors5 = [update_naive(prior3, values(adelie[r, col_names3]), norm_maps3) for r in 1:nrow(adelie) if !any(isequal.(missing, values(adelie[r, col_names3])))]
 end
+
+# ╔═╡ 2c02f2c8-0505-436d-b4fe-4a365efff48d
+posteriors5
 
 # ╔═╡ 7b8c7abe-015e-4ab1-a84b-e227af91c3c5
  adelie.Sex_classification = max_prob.(posteriors5)
@@ -401,8 +434,8 @@ end
 # ╔═╡ 3736463e-612d-4d23-b6f4-692a870091ce
 right_sex = adelie.Sex_classification .== adelie.Sex
 
-# ╔═╡ 6d9dbb1c-1620-488b-ad48-65054c8c5d90
-md"Hard to believe, but it appears to be 100% accurate!"
+# ╔═╡ b56f786a-bce0-42a5-b10a-be63439de4cf
+name
 
 # ╔═╡ 3e6a6f17-71d4-4fda-9fd5-ba5d0d88b11b
 sum(right_sex) / nrow(adelie)
@@ -417,6 +450,7 @@ sum(right_sex) / nrow(adelie)
 # ╠═cfbc5e96-3dfc-4ca2-8ecd-bc9226eaeb18
 # ╠═6ea82220-ebc9-4fc7-ab6c-0f79d2cfd5e4
 # ╠═c1a235a7-8668-46a5-a3b4-dc752b7c9110
+# ╠═b5ad9881-ed29-43f5-ab99-2015428cf87f
 # ╠═3d36c6b0-80dc-48ad-8794-2d9c3975fa30
 # ╠═16aef67d-c069-4e47-83d1-b2ac1625d18c
 # ╠═2f014da1-2f5a-476d-b711-6a3e156a62d1
@@ -444,6 +478,8 @@ sum(right_sex) / nrow(adelie)
 # ╠═3935b12a-c50b-46b7-b64b-8a11a7215335
 # ╟─eeafc3d6-9bc2-415a-ab40-a719ff9302f5
 # ╠═978f66ce-b020-4857-8e6e-f0f431434d66
+# ╠═a463ff3a-0adc-4d71-b36b-66986e9472a7
+# ╠═945aa864-359b-4cd2-a032-a8111100d268
 # ╠═3d3e0438-1311-44ed-9f2e-7259383cb4d0
 # ╠═51ff7c73-d304-440d-aba4-61743f97bb3b
 # ╠═a725825d-0c60-404f-8c33-380c96cd2b62
@@ -483,8 +519,12 @@ sum(right_sex) / nrow(adelie)
 # ╠═9a2561e2-0662-4ee1-981f-0f925d3145dc
 # ╠═13eed2d4-42aa-420b-b163-bec26f360867
 # ╠═8765f6f3-d3b3-4f09-8c3f-ec1735ebadef
+# ╠═332acf48-7d32-47ee-8093-7015d0a42435
+# ╠═bc16dd93-8d42-45a8-bf23-0e47d37010fa
+# ╠═75b57167-b481-4cde-a1d2-9ee0a3c84e72
 # ╠═470c310f-e88f-4a9c-8263-abd2b313b07d
+# ╠═2c02f2c8-0505-436d-b4fe-4a365efff48d
 # ╠═7b8c7abe-015e-4ab1-a84b-e227af91c3c5
 # ╠═3736463e-612d-4d23-b6f4-692a870091ce
-# ╟─6d9dbb1c-1620-488b-ad48-65054c8c5d90
+# ╠═b56f786a-bce0-42a5-b10a-be63439de4cf
 # ╠═3e6a6f17-71d4-4fda-9fd5-ba5d0d88b11b
