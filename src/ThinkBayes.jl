@@ -7,7 +7,8 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
     expo_pdf, kde_from_sample, items, outer, 
-    Joint, make_joint, visualize_joint, column, row, joint_to_df
+    Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
+    collect_vals
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -16,7 +17,7 @@ export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insup
 # from Plot:
 export plot, plot!
 
-import Plots: plot, plot!, bar, heatmap, heatmap!
+import Plots: plot, plot!, bar, heatmap, heatmap!, contour, contour!
 
 import Images: colorview
 import ImageTransformations: imresize
@@ -24,7 +25,7 @@ import Colors: RGB
 
 import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
-    mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf, std
+    mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf, std, UnivariateDistribution
 
 import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/), isapprox
 
@@ -97,6 +98,13 @@ function plot(bs::Vector{Pmf})
 	plot(xs, ps, label=titles, layout=(2,2))
 end
 
+function plot(d::UnivariateDistribution; label=nothing)
+    low = mean(d) - 2 * std(d)
+    high = mean(d) + 2 * std(d)
+    plot(pmf_from_dist(range(low, high, length=51), d))
+end
+
+
 # DataFrame
 
 function loc(df::AbstractDataFrame, val)
@@ -107,6 +115,11 @@ function loc(df::AbstractDataFrame, val)
    df[idx, :]
 end
 
+function collect_vals(gdf::GroupedDataFrame{DataFrame}, idxc, valc)
+    Dict([(first(g)[idxc], g[!, valc]) for g in gdf])
+end
+
+# given a dataframe of numbers, return a matrix of those values
 df_to_matrix(df::AbstractDataFrame) = reduce(hcat, eachcol(df))
 
 # Distributions
@@ -265,7 +278,7 @@ function kde_from_sample(d, q_min, q_max, q_n)
     pmf_from_seq(qs, normalize(ps))
 end
 
-function pmf_from_dist(vals, dist:: Distributions.UnivariateDistribution)
+function pmf_from_dist(vals, dist::UnivariateDistribution)
     ps = [pdf(dist, v) for v in vals]
     pmf_from_seq(vals, normalize(ps))
 end
@@ -548,27 +561,39 @@ function visualize_joint_old(M::Matrix{Float64})
     imresize(colorview(RGB, Mx, Mx, M2), ratio = 5)
 end
 
-function visualize_joint(joint::Joint; c = :greys, xaxis="XS", yaxis="YS", normalize=false)
+function visualize_joint!(joint::Joint; c = :greys, xaxis="XS", yaxis="YS", normalize=false, alpha=1.0, is_contour=false)
+    visualize_joint(joint, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize, secondary=true, alpha=alpha, is_contour=is_contour)
+end
+function visualize_joint(joint::Joint; c = :greys, xaxis="XS", yaxis="YS", normalize=false, secondary=false, alpha=1.0, is_contour=false)
     M = joint.M
     ys = joint.ys
     xs = joint.xs
-    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize)
+    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize, secondary=secondary, alpha=alpha, is_contour=is_contour)
 end
 
-#= function visualize_joint(df::DataFrame; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false)
-    M = df_to_matrix(df)
-    ys = names(df)
-    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize)
-end
- =#
-function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false)
+function visualize_joint!(M::AbstractMatrix; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false, alpha=1.0, is_contour=false)
+    visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize, secondary=true, alpha=alpha, is_contour=is_contour)
+end    
+function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys, xaxis="XS", yaxis="YS", normalize=false, secondary=false, alpha=1.0, is_contour=false)
     rows,cols = size(M)
     txs = xs === missing ? (1:rows) : xs
     tys = ys === missing ? (1:cols) : ys
     if normalize
         M = M .* (1 / maximum(M))
     end
-    heatmap(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis)
+    if secondary
+        if is_contour
+            contour!(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis, alpha=alpha)
+        else
+            heatmap!(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis, alpha=alpha)
+        end
+    else
+        if is_contour
+            contour(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis, alpha=alpha)
+        else
+            heatmap(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis, alpha=alpha)
+        end
+    end
 end
 
 abstract type AbstractDistFunction end
@@ -581,7 +606,7 @@ struct CDF <: AbstractDistFunction
     c_interp::Any
 end
 
-cdf_from_seq(vs:: Vector) = sort(vs) |> pmf_from_seq |> make_cdf
+cdf_from_seq(vs) = sort(vs) |> pmf_from_seq |> make_cdf
 
 function make_cdf(pmf::Pmf)
     make_cdf(values(pmf), [cdf(pmf, x) for x in values(pmf)])
@@ -678,7 +703,12 @@ end
 function show(io::IO, p1::CDF)
     show(p1.d)
 end
-
+function show(io::IO, ::MIME"text/plain", p1::CDF)
+    show(io, "text/plain", p1.d)
+end
+function show(io::IO, ::MIME"text/html", p1::CDF)
+    show(io, "text/html", p1.d)
+end
 
 # CCDF
 
