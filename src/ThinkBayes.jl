@@ -17,7 +17,7 @@ export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insup
 # from Plot:
 export plot, plot!
 
-import Plots: plot, plot!, bar, heatmap, heatmap!, contour, contour!
+import Plots: plot, plot!, bar, heatmap, heatmap!, contour, contour!, surface, surface!
 
 import Images: colorview
 import ImageTransformations: imresize
@@ -534,6 +534,20 @@ function joint_to_df(j::Joint)
     DataFrame(hcat(j.ys, j.M), vcat(["Index"], string.(round.(j.xs, digits=3))))
 end
 
+function marginal(joint::Joint, dim)
+	sums = sum(joint.M, dims=dim)
+	pmf_from_seq(dim==1 ? joint.xs : joint.ys, vec(sums))
+end
+
+function mult_likelihood(j::Joint, likelihood)
+    Joint(normalize(j.M .* likelihood), j.xs, j.ys)
+end
+
+(*)(d::Joint, likelihood) = mult_likelihood(d, likelihood)
+
+(+)(d1::Joint, d2::Joint) = Joint(d1.M .+ d2.M, d1.xs, d2.xs)
+
+
 function show(io::IO, j::Joint)
     show(joint_to_df(j))
 end
@@ -594,6 +608,10 @@ function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys
             heatmap(txs, tys, M, c=c, xaxis=xaxis, yaxis=yaxis, alpha=alpha)
         end
     end
+end
+
+function surface(j::Joint, kwargs...)
+    surface(j.xs, j.ys, j.M, kwargs...)
 end
 
 abstract type AbstractDistFunction end

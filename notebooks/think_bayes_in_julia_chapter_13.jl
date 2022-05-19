@@ -75,21 +75,65 @@ function update_norm(prior, data)
 	mk_dense(x, y) = pdf.(Normal(x, y), data)
 	densities = outer(mk_dense, prior.xs, prior.ys)
 	likelihood = prod.(densities)
+	#normalize(prior.M .* likelihood)
+	prior * likelihood
 end
 
 # ╔═╡ e283ac78-ce8f-4c62-8bc0-47502edf18d9
-posterior_control = update_norm(prior, val_map["Control"])
+posterior_control = update_norm(prior, val_map["Control"]);
 
 # ╔═╡ 228ff1e9-5b41-46c6-afa1-206b137aa0b1
-posterior_treated = update_norm(prior, val_map["Treated"])
+posterior_treated = update_norm(prior, val_map["Treated"]);
 
 # ╔═╡ fcf15bc1-11f7-484e-88b7-6baf907a70e6
 begin
 	plot()
-	visualize_joint!(posterior_treated, xs=prior.xs, ys=prior.ys, alpha=1.0, is_contour=true, normalize=true, c=:blues)
-	visualize_joint!(posterior_control, xs=prior.xs, ys=prior.ys, alpha=1.0, is_contour=true, normalize=true, c=:reds)
+	visualize_joint!(posterior_treated, alpha=1.0, is_contour=true, c=:blues)
+	visualize_joint!(posterior_control, alpha=1.0, is_contour=true, c=:reds)
 	plot!()
 end
+
+# ╔═╡ 9e80e64d-0961-4f32-91d9-0ff8c12b859f
+plotly()
+
+# ╔═╡ c41b015a-b70f-4201-961c-1f501854aeb2
+surface(posterior_treated + posterior_control)
+
+# ╔═╡ 632714d4-82b8-453e-9727-74a71a72a3fc
+md"## Posterior Marginal Distributions"
+
+# ╔═╡ 293a2adb-a02b-4364-8121-c8fc8502ca81
+pmf_mean_control = ThinkBayes.marginal(posterior_control, 1);
+
+# ╔═╡ 2c3a1ddd-370e-4e76-b955-6cacc07116b3
+pmf_mean_treated = ThinkBayes.marginal(posterior_treated, 1);
+
+# ╔═╡ 750182de-1170-44cb-8c5f-2d94eb1a9988
+begin
+	plot(pmf_mean_control, label="Control")
+	plot!(pmf_mean_treated, label="Treated")
+end
+
+# ╔═╡ 9b78cd80-57b2-4b11-a4e8-b7dc48af7d11
+prob_gt(pmf_mean_treated, pmf_mean_control)
+
+# ╔═╡ a99563ad-53c5-4a71-884d-19ae56b78c93
+md"## Distribution of Differences"
+
+# ╔═╡ 19e1c017-4b4e-438f-b485-53068fbe10e7
+pmf_diff = sub_dist(pmf_mean_treated, pmf_mean_control);
+
+# ╔═╡ e7dde5db-a9a7-4eb0-8bdb-92c58abaf78c
+length(values(pmf_diff))
+
+# ╔═╡ 96d4b76b-b0b7-4048-8b4a-19c3ea8d7250
+plot(pmf_diff, xaxis=("Difference in population means"), yaxis=("PDF"))
+
+# ╔═╡ 29c0003b-2d70-43b3-86bf-bf82606f8dba
+cdf_diff = make_cdf(pmf_diff);
+
+# ╔═╡ ed61c2a4-2bba-4878-90e0-a05123ec3ec8
+plot(cdf_diff, xaxis=("Difference in population means"), yaxis=("PDF"))
 
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
@@ -112,3 +156,16 @@ end
 # ╠═e283ac78-ce8f-4c62-8bc0-47502edf18d9
 # ╠═228ff1e9-5b41-46c6-afa1-206b137aa0b1
 # ╠═fcf15bc1-11f7-484e-88b7-6baf907a70e6
+# ╠═9e80e64d-0961-4f32-91d9-0ff8c12b859f
+# ╠═c41b015a-b70f-4201-961c-1f501854aeb2
+# ╟─632714d4-82b8-453e-9727-74a71a72a3fc
+# ╠═293a2adb-a02b-4364-8121-c8fc8502ca81
+# ╠═2c3a1ddd-370e-4e76-b955-6cacc07116b3
+# ╠═750182de-1170-44cb-8c5f-2d94eb1a9988
+# ╠═9b78cd80-57b2-4b11-a4e8-b7dc48af7d11
+# ╟─a99563ad-53c5-4a71-884d-19ae56b78c93
+# ╠═19e1c017-4b4e-438f-b485-53068fbe10e7
+# ╠═e7dde5db-a9a7-4eb0-8bdb-92c58abaf78c
+# ╠═96d4b76b-b0b7-4048-8b4a-19c3ea8d7250
+# ╠═29c0003b-2d70-43b3-86bf-bf82606f8dba
+# ╠═ed61c2a4-2bba-4878-90e0-a05123ec3ec8
