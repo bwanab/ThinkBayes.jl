@@ -2,6 +2,7 @@ module Tst
 
 include("../src/ThinkBayes.jl")
 using .ThinkBayes
+using DataFrames
 using Distributions: Beta
 using Plots
 using Test
@@ -87,10 +88,26 @@ using Test
     pdf_beta = pmf_from_dist(LinRange(0, 1, 50), beta_dist)
     @test mean(pdf_beta) ≈ 0.5
     @test round(std(pdf_beta), digits=5) ≈ 0.22342
-    x_pmf = make_normal_pmf(range(-5, 5, 50))
-    y_pmf = make_normal_pmf(range(0, 10, 50), mu=5.0, sigma=2.0)
+    x_pmf = make_normal_pmf(range(-5, 5, 51))
+    y_pmf = make_normal_pmf(range(0, 10, 51), mu=5.0, sigma=2.0)
     j = make_joint(*, x_pmf, y_pmf)
-    @test round(sum(column(j, -0.102)), digits=4) ≈ 0.081
-    @test round(sum(row(j, 4.898)), digits=4) ≈ 0.0411
+    @test round(sum(column(j, 1.0)), digits=4) ≈ 0.0484
+    @test round(sum(row(j, 1.0)), digits=4) ≈ 0.0055
+    m1 = marginal(j, 1)
+    @test round(pdf(m1, 1.0), digits=4) ≈ 0.0484
+    m2 = marginal(j, 2)
+    @test round(pdf(m2, 1.0), digits=4) ≈ 0.0055
+    @test round(sum(row(j + j, 1.0)), digits=4) ≈ 0.0712
+    @test round(sum(column(j + j, 1.0)), digits=4) ≈ 0.0968
+    likelihood = reshape(range(0, 10, length=51*51), 51, 51)
+    @test round(sum(row(j * likelihood, 1.0)), digits=4) ≈ 0.0054
+    @test round(sum(column(j * likelihood, 1.0)), digits=4) ≈ 0.0579
+    df = DataFrame(a=vcat(fill("this", 6), fill("that",6)), b=1:12)
+    gdf = groupby(df, "a")
+    @test collect_vals(gdf, "a", "b")["this"] == collect(1:6)
+    @test collect_vals(gdf, "a", "b")["that"] == collect(7:12)
+    d = collect_func(gdf, pmf_from_seq, "a", "b")
+    @test round(pdf(d["this"], 4), digits=4) ≈ 0.1667
+    @test round(pdf(d["that"], 10), digits=4) ≈ 0.1667
 end
 end

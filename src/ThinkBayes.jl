@@ -8,7 +8,7 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
     expo_pdf, kde_from_sample, items, outer, 
     Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals
+    collect_vals, collect_func, marginal
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -115,8 +115,21 @@ function loc(df::AbstractDataFrame, val)
    df[idx, :]
 end
 
+"""
+From a grouped data frame, extract the group names and the values of a given
+column as a dictionary of lists.
+"""
 function collect_vals(gdf::GroupedDataFrame{DataFrame}, idxc, valc)
     Dict([(first(g)[idxc], g[!, valc]) for g in gdf])
+end
+
+"""
+From a grouped data frame, extract the group names and the result of a function
+on the group as a dictionary.
+"""
+function collect_func(gdf::GroupedDataFrame{DataFrame}, f, idxc, valc)
+    groups = combine(gdf, valc => f)
+    Dict([(k, groups[findfirst(==(k), groups[!, idxc]), valc*"_"*string(f)]) for k in collect(groups[!, idxc])])
 end
 
 # given a dataframe of numbers, return a matrix of those values
