@@ -30,13 +30,14 @@ cdf_groups = combine(gdf, :Response => cdf_from_seq);
 md"And make a dictionary of the results"
 
 # ╔═╡ 6e616132-37a8-495c-9374-ce4e28f506e1
-responses = Dict([(k, cdf_groups[findfirst(==(k), cdf_groups.Treatment), "Response_cdf_from_seq"]) for k in collect(cdf_groups.Treatment)]);
+#responses = Dict([(k, cdf_groups[findfirst(==(k), cdf_groups.Treatment), "Response_cdf_from_seq"]) for k in collect(cdf_groups.Treatment)]);
+responses = collect_vals(gdf, "Treatment", "Response")
 
 # ╔═╡ 84691d70-de1b-4839-9969-48b7fc7322ce
 begin
 	plot(xaxis=("Score"), yaxis=("CDF"))
 	for k in keys(responses)
-		plot!(responses[k], label=k)
+		plot!(cdf_from_seq(responses[k]), label=k)
 	end
 	plot!()
 end
@@ -135,6 +136,55 @@ cdf_diff = make_cdf(pmf_diff);
 # ╔═╡ ed61c2a4-2bba-4878-90e0-a05123ec3ec8
 plot(cdf_diff, xaxis=("Difference in population means"), yaxis=("PDF"))
 
+# ╔═╡ 36a582fc-3d19-4d39-82bf-851bc46233c6
+mean(pmf_diff)
+
+# ╔═╡ d374722d-c468-46f5-adc1-50a04ce43df1
+credible_interval(pmf_diff, 0.9)
+
+# ╔═╡ b0887200-149f-43cf-bc58-0312252eb63c
+md"## Using Summary Statistics"
+
+# ╔═╡ ac474237-5b83-46aa-af2a-58756eb8d74c
+begin
+	mu = 42
+	sigma = 17
+end
+
+# ╔═╡ 27308e14-305c-42ed-9138-8f3c8e85d021
+begin
+	n = 20
+	m = 41
+	s = 18
+end
+
+# ╔═╡ 6addd7af-96a1-4a45-b98a-66506ca75799
+dist_m = Normal(mu, sigma/√n)
+
+# ╔═╡ e9e6daf7-811e-4347-b0a8-a885060ac82b
+like1 = pdf(dist_m, m)
+
+# ╔═╡ 61cb6cb9-d270-43d1-a262-56b1c3122464
+t = n * s^2 / sigma^2
+
+# ╔═╡ 6820f9e3-535e-4447-9b4c-22f39b41d7c7
+dist_s = Chisq(n-1)
+
+# ╔═╡ c9dfa5cc-c7c7-4876-9121-2bfe6a0e9aa3
+like2 = pdf(dist_s, t)
+
+# ╔═╡ f7c3bb84-7ac9-48a5-9013-4bd83c148b04
+like = like1 * like2
+
+# ╔═╡ 11ceaf81-463a-493f-96dc-693dbf3a35e7
+md"## Update with Summary Statistics"
+
+# ╔═╡ f18042e9-a775-4bb0-b87f-a44fa4ec532d
+summary = Dict([(name, (length(values(r)), mean(r), std(r))) for (name, r) in    pairs(responses)]) 
+
+# ╔═╡ 227df8be-b546-442f-a998-447cefb8992e
+typeof(responses["Treated"])
+
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
 # ╠═4207b7f9-775a-4358-909e-32c217362770
@@ -169,3 +219,17 @@ plot(cdf_diff, xaxis=("Difference in population means"), yaxis=("PDF"))
 # ╠═96d4b76b-b0b7-4048-8b4a-19c3ea8d7250
 # ╠═29c0003b-2d70-43b3-86bf-bf82606f8dba
 # ╠═ed61c2a4-2bba-4878-90e0-a05123ec3ec8
+# ╠═36a582fc-3d19-4d39-82bf-851bc46233c6
+# ╠═d374722d-c468-46f5-adc1-50a04ce43df1
+# ╟─b0887200-149f-43cf-bc58-0312252eb63c
+# ╠═ac474237-5b83-46aa-af2a-58756eb8d74c
+# ╠═27308e14-305c-42ed-9138-8f3c8e85d021
+# ╠═6addd7af-96a1-4a45-b98a-66506ca75799
+# ╠═e9e6daf7-811e-4347-b0a8-a885060ac82b
+# ╠═61cb6cb9-d270-43d1-a262-56b1c3122464
+# ╠═6820f9e3-535e-4447-9b4c-22f39b41d7c7
+# ╠═c9dfa5cc-c7c7-4876-9121-2bfe6a0e9aa3
+# ╠═f7c3bb84-7ac9-48a5-9013-4bd83c148b04
+# ╟─11ceaf81-463a-493f-96dc-693dbf3a35e7
+# ╠═f18042e9-a775-4bb0-b87f-a44fa4ec532d
+# ╠═227df8be-b546-442f-a998-447cefb8992e
