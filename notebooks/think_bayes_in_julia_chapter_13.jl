@@ -273,7 +273,7 @@ begin
 end;
 
 # ╔═╡ 72424251-063a-4e10-839b-10fbff4f2101
-pmf_sample_means = kde_from_sample(vec(sample_means), low, high, 101)
+pmf_sample_means = kde_from_sample(vec(sample_means), low, high, 101);
 
 # ╔═╡ 55de30dc-ce1c-4421-b08c-b6463f201704
 begin
@@ -283,6 +283,37 @@ end
 
 # ╔═╡ c69230af-f832-4ef8-8b0c-fda95197e38f
 md"## Checking Standard Deviation"
+
+# ╔═╡ 8b59e536-7b84-4663-9788-7e8db4f63df3
+sample_stds = std(samples, dims=2);
+
+# ╔═╡ 8774d461-c81c-468d-ba13-eedc375a4b76
+transformed = n_samp .* sample_stds .^2 ./ sigma^2
+
+# ╔═╡ 67e8d1a4-ce04-411d-9099-6461e9952e60
+dist_sq = Chisq(n_samp - 1)
+
+# ╔═╡ 647aa9b2-5dd8-4aba-bb61-ff3d4bca5241
+begin
+	lowsq = 0
+	highsq = mean(dist_sq) + std(dist_sq) * 4
+	pmf_sq = pmf_from_dist(range(lowsq, highsq, 101), dist_sq)
+end;
+
+# ╔═╡ 49194b60-5b95-4e4e-8f8d-fadb69a5e27c
+pmf_sample_stds = kde_from_sample(vec(transformed), lowsq, highsq, 101);
+
+# ╔═╡ 36bfea5d-3aff-49c0-bed6-d27424c603a5
+begin
+	plot(pmf_sq, label="Theoretical Distribution")
+	plot!(pmf_sample_stds, label="KDE of sample std")
+end
+
+# ╔═╡ 03a99bf1-4029-4d8a-9be9-954a8cc8a44a
+cor(sample_means, sample_stds)
+
+# ╔═╡ 1238377e-9404-416c-ae2e-12a7238bd623
+sample_stds
 
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
@@ -352,3 +383,11 @@ md"## Checking Standard Deviation"
 # ╠═72424251-063a-4e10-839b-10fbff4f2101
 # ╠═55de30dc-ce1c-4421-b08c-b6463f201704
 # ╟─c69230af-f832-4ef8-8b0c-fda95197e38f
+# ╠═8b59e536-7b84-4663-9788-7e8db4f63df3
+# ╠═8774d461-c81c-468d-ba13-eedc375a4b76
+# ╠═67e8d1a4-ce04-411d-9099-6461e9952e60
+# ╠═647aa9b2-5dd8-4aba-bb61-ff3d4bca5241
+# ╠═49194b60-5b95-4e4e-8f8d-fadb69a5e27c
+# ╠═36bfea5d-3aff-49c0-bed6-d27424c603a5
+# ╠═03a99bf1-4029-4d8a-9be9-954a8cc8a44a
+# ╠═1238377e-9404-416c-ae2e-12a7238bd623
