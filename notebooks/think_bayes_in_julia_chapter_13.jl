@@ -12,7 +12,10 @@ begin
 end
 
 # ╔═╡ 99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
-using DataFrames, CSV, Plots, Distributions
+using DataFrames, CSV, Plots, Distributions, PlutoUI
+
+# ╔═╡ a6de7ccf-6512-4c38-b577-ade3fab54c27
+TableOfContents()
 
 # ╔═╡ 92d83875-5ad2-4d6d-9122-e6a98464f2cb
 df = DataFrame(CSV.File(download("https://github.com/AllenDowney/ThinkBayes2/raw/master/data/drp_scores.csv"), missingstring=["NA"], delim='\t', header=22, skipto=23));
@@ -104,10 +107,10 @@ surface(posterior_treated + posterior_control)
 md"## Posterior Marginal Distributions"
 
 # ╔═╡ 293a2adb-a02b-4364-8121-c8fc8502ca81
-pmf_mean_control = ThinkBayes.marginal(posterior_control, 1);
+pmf_mean_control = marginal(posterior_control, 1);
 
 # ╔═╡ 2c3a1ddd-370e-4e76-b955-6cacc07116b3
-pmf_mean_treated = ThinkBayes.marginal(posterior_treated, 1);
+pmf_mean_treated = marginal(posterior_treated, 1);
 
 # ╔═╡ 750182de-1170-44cb-8c5f-2d94eb1a9988
 begin
@@ -183,10 +186,107 @@ md"## Update with Summary Statistics"
 summary = Dict([(name, (length(values(r)), mean(r), std(r))) for (name, r) in    pairs(responses)]) 
 
 # ╔═╡ 227df8be-b546-442f-a998-447cefb8992e
-typeof(responses["Treated"])
+n₁, m₁, s₁ = summary["Control"]
+
+# ╔═╡ 9a5512de-cc0c-4f6d-a715-cbf9b7aea978
+likefunc(m,s) = pdf(Normal(m, s/√n₁), m₁)
+
+# ╔═╡ 048f526a-376f-43f5-ad3e-352e23066414
+like₁ = outer(likefunc, prior.xs, prior.ys);
+
+# ╔═╡ f8e88d6d-653b-4e8e-9d26-28817ccbf13c
+size(like₁)
+
+# ╔═╡ 1b19b45e-3697-4be3-ab53-95f4c4282a3d
+begin
+	like2func(m, s) = pdf(Chisq(n₁ - 1), n * s₁^2 / s^2)
+	like₂ = outer(like2func, prior.xs, prior.ys)
+	size(like₂)
+end;
+
+# ╔═╡ e411b5cf-91c6-4d13-8a6e-dc7875a30223
+function update_norm_summary(prior, data)
+	n₁, m₁, s₁ = data
+	like1func(m,s) = pdf(Normal(m, s/√n₁), m₁)
+	like₁ = outer(like1func, prior.xs, prior.ys);
+	like2func(m, s) = pdf(Chisq(n₁ - 1), n * s₁^2 / s^2)
+	like₂ = outer(like2func, prior.xs, prior.ys)
+	prior * (like₁ .* like₂)
+end
+
+# ╔═╡ 34a07d31-e02d-49f7-b4b1-a258068ccf18
+begin
+	posterior_control2 = update_norm_summary(prior, summary["Control"])
+	posterior_treated2 = update_norm_summary(prior, summary["Treated"])
+end;
+
+# ╔═╡ 7d4835cf-ecbd-401f-b393-ef3aeafb7d6b
+begin
+	plot()
+	visualize_joint!(posterior_treated2, alpha=1.0, is_contour=true, c=:blues)
+	visualize_joint!(posterior_control2, alpha=1.0, is_contour=true, c=:reds)
+	plot!()
+end
+
+# ╔═╡ 439e9db4-2006-4ac8-8a8f-35d7a02f9664
+md"## Comparing Marginals"
+
+# ╔═╡ c8708e9b-885d-4725-ab8f-54ed4c70ae07
+begin
+	pmf_mean_control2 = marginal(posterior_control2, 1)
+	pmf_mean_treated2 = marginal(posterior_treated2, 1)
+end;
+
+# ╔═╡ d8ad74bc-2986-4d66-bf79-9fa54af1b91f
+begin
+	plot()
+	plot!(pmf_mean_control, label="Control1")
+	plot!(pmf_mean_control2, label="Control2")
+	plot!(pmf_mean_treated, label="Treated1")
+	plot!(pmf_mean_treated2, label="Treated2")
+	plot!()
+end
+
+# ╔═╡ 8f1c24bb-3517-4693-acaf-6b2f465890bf
+md"## Proof By Simulation"
+
+# ╔═╡ 4ff3434a-1805-47f3-8c15-4ad8a714ecff
+dist = Normal(mu, sigma)
+
+# ╔═╡ b4858b90-d4b2-49b2-90f2-f0068c3b9beb
+n_samp = 20
+
+# ╔═╡ e8e366f8-a831-4c33-82f7-6095af6369aa
+begin
+	samples = rand(dist, 1000, n_samp)
+	size(samples)
+end
+
+# ╔═╡ 7f31c538-ad7f-4f1e-948c-5416f25e115d
+sample_means = mean(samples, dims=2);
+
+# ╔═╡ 2ce56d45-8574-4524-804b-92337c1d9300
+begin
+	low = mean(dist_m) - std(dist_m) * 3
+	high = mean(dist_m) + std(dist_m) * 3
+	pmf_m = pmf_from_dist(range(low, high, 101), dist_m)
+end;
+
+# ╔═╡ 72424251-063a-4e10-839b-10fbff4f2101
+pmf_sample_means = kde_from_sample(vec(sample_means), low, high, 101)
+
+# ╔═╡ 55de30dc-ce1c-4421-b08c-b6463f201704
+begin
+	plot(pmf_m, label="Theoretical distribution")
+	plot!(pmf_sample_means, label="KDE of sample means")
+end
+
+# ╔═╡ c69230af-f832-4ef8-8b0c-fda95197e38f
+md"## Checking Standard Deviation"
 
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
+# ╠═a6de7ccf-6512-4c38-b577-ade3fab54c27
 # ╠═4207b7f9-775a-4358-909e-32c217362770
 # ╠═92d83875-5ad2-4d6d-9122-e6a98464f2cb
 # ╠═6c04a8f8-3fd4-4a40-87de-ff37160ddcb0
@@ -233,3 +333,22 @@ typeof(responses["Treated"])
 # ╟─11ceaf81-463a-493f-96dc-693dbf3a35e7
 # ╠═f18042e9-a775-4bb0-b87f-a44fa4ec532d
 # ╠═227df8be-b546-442f-a998-447cefb8992e
+# ╠═9a5512de-cc0c-4f6d-a715-cbf9b7aea978
+# ╠═048f526a-376f-43f5-ad3e-352e23066414
+# ╠═f8e88d6d-653b-4e8e-9d26-28817ccbf13c
+# ╠═1b19b45e-3697-4be3-ab53-95f4c4282a3d
+# ╠═e411b5cf-91c6-4d13-8a6e-dc7875a30223
+# ╠═34a07d31-e02d-49f7-b4b1-a258068ccf18
+# ╠═7d4835cf-ecbd-401f-b393-ef3aeafb7d6b
+# ╟─439e9db4-2006-4ac8-8a8f-35d7a02f9664
+# ╠═c8708e9b-885d-4725-ab8f-54ed4c70ae07
+# ╠═d8ad74bc-2986-4d66-bf79-9fa54af1b91f
+# ╟─8f1c24bb-3517-4693-acaf-6b2f465890bf
+# ╠═4ff3434a-1805-47f3-8c15-4ad8a714ecff
+# ╠═b4858b90-d4b2-49b2-90f2-f0068c3b9beb
+# ╠═e8e366f8-a831-4c33-82f7-6095af6369aa
+# ╠═7f31c538-ad7f-4f1e-948c-5416f25e115d
+# ╠═2ce56d45-8574-4524-804b-92337c1d9300
+# ╠═72424251-063a-4e10-839b-10fbff4f2101
+# ╠═55de30dc-ce1c-4421-b08c-b6463f201704
+# ╟─c69230af-f832-4ef8-8b0c-fda95197e38f
