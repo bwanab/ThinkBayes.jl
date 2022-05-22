@@ -89,12 +89,10 @@ posterior_control = update_norm(prior, val_map["Control"]);
 # ╔═╡ 228ff1e9-5b41-46c6-afa1-206b137aa0b1
 posterior_treated = update_norm(prior, val_map["Treated"]);
 
-# ╔═╡ fcf15bc1-11f7-484e-88b7-6baf907a70e6
+# ╔═╡ 013be8cb-989d-48af-b028-63159d3da220
 begin
-	plot()
-	visualize_joint!(posterior_treated, alpha=1.0, is_contour=true, c=:blues)
-	visualize_joint!(posterior_control, alpha=1.0, is_contour=true, c=:reds)
-	plot!()
+	contour(posterior_treated, c=:blues)
+	contour!(posterior_control, c=:reds)
 end
 
 # ╔═╡ 9e80e64d-0961-4f32-91d9-0ff8c12b859f
@@ -220,12 +218,10 @@ begin
 	posterior_treated2 = update_norm_summary(prior, summary["Treated"])
 end;
 
-# ╔═╡ 7d4835cf-ecbd-401f-b393-ef3aeafb7d6b
+# ╔═╡ 28d6452f-d9ed-4961-8dc5-9f265b883976
 begin
-	plot()
-	visualize_joint!(posterior_treated2, alpha=1.0, is_contour=true, c=:blues)
-	visualize_joint!(posterior_control2, alpha=1.0, is_contour=true, c=:reds)
-	plot!()
+	contour(posterior_treated, c=:reds)
+	contour!(posterior_control, c=:blues)
 end
 
 # ╔═╡ 439e9db4-2006-4ac8-8a8f-35d7a02f9664
@@ -312,8 +308,37 @@ end
 # ╔═╡ 03a99bf1-4029-4d8a-9be9-954a8cc8a44a
 cor(sample_means, sample_stds)
 
-# ╔═╡ 1238377e-9404-416c-ae2e-12a7238bd623
-sample_stds
+# ╔═╡ 29d6f2eb-5a87-4ebe-99bf-9c3fc02c335e
+md"""## Exercises
+_exercise 13.1_
+"""
+
+# ╔═╡ 12b1ab62-f307-41cd-a193-3c378e435a80
+begin
+	pmf_std_control = marginal(posterior_control, 2)
+	pmf_std_treated = marginal(posterior_treated, 2)
+end
+
+# ╔═╡ 5bd617b3-5fbd-4a60-8b1b-27baaa5a9286
+begin
+	plot(pmf_std_control, label="control")
+	plot!(pmf_std_treated, label="treated")
+end
+
+# ╔═╡ bbd53073-4d50-43cd-8d60-559af7880daf
+prob_gt(pmf_std_control, pmf_std_treated)
+
+# ╔═╡ ef0bbaf6-c822-41c8-972c-59368f5928c5
+pmf_diff2 = sub_dist(pmf_std_control, pmf_std_treated)
+
+# ╔═╡ ba73c7d0-bf14-4d08-8f91-6585ec77fa23
+mean(pmf_diff2)
+
+# ╔═╡ 71452494-7caf-48db-8e37-e5fa0ba9eaf0
+credible_interval(pmf_diff2, 0.9)
+
+# ╔═╡ 6449db62-e9c7-41ac-a40b-f0055c6ea30d
+plot(pmf_diff2)
 
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
@@ -336,7 +361,7 @@ sample_stds
 # ╠═3f175a6d-a62f-4ece-ba52-fdea28c3e482
 # ╠═e283ac78-ce8f-4c62-8bc0-47502edf18d9
 # ╠═228ff1e9-5b41-46c6-afa1-206b137aa0b1
-# ╠═fcf15bc1-11f7-484e-88b7-6baf907a70e6
+# ╠═013be8cb-989d-48af-b028-63159d3da220
 # ╠═9e80e64d-0961-4f32-91d9-0ff8c12b859f
 # ╠═c41b015a-b70f-4201-961c-1f501854aeb2
 # ╟─632714d4-82b8-453e-9727-74a71a72a3fc
@@ -370,7 +395,7 @@ sample_stds
 # ╠═1b19b45e-3697-4be3-ab53-95f4c4282a3d
 # ╠═e411b5cf-91c6-4d13-8a6e-dc7875a30223
 # ╠═34a07d31-e02d-49f7-b4b1-a258068ccf18
-# ╠═7d4835cf-ecbd-401f-b393-ef3aeafb7d6b
+# ╠═28d6452f-d9ed-4961-8dc5-9f265b883976
 # ╟─439e9db4-2006-4ac8-8a8f-35d7a02f9664
 # ╠═c8708e9b-885d-4725-ab8f-54ed4c70ae07
 # ╠═d8ad74bc-2986-4d66-bf79-9fa54af1b91f
@@ -390,4 +415,11 @@ sample_stds
 # ╠═49194b60-5b95-4e4e-8f8d-fadb69a5e27c
 # ╠═36bfea5d-3aff-49c0-bed6-d27424c603a5
 # ╠═03a99bf1-4029-4d8a-9be9-954a8cc8a44a
-# ╠═1238377e-9404-416c-ae2e-12a7238bd623
+# ╟─29d6f2eb-5a87-4ebe-99bf-9c3fc02c335e
+# ╠═12b1ab62-f307-41cd-a193-3c378e435a80
+# ╠═5bd617b3-5fbd-4a60-8b1b-27baaa5a9286
+# ╠═bbd53073-4d50-43cd-8d60-559af7880daf
+# ╠═ef0bbaf6-c822-41c8-972c-59368f5928c5
+# ╠═ba73c7d0-bf14-4d08-8f91-6585ec77fa23
+# ╠═71452494-7caf-48db-8e37-e5fa0ba9eaf0
+# ╠═6449db62-e9c7-41ac-a40b-f0055c6ea30d

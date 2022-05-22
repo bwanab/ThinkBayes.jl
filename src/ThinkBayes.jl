@@ -6,7 +6,7 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
-    expo_pdf, kde_from_sample, items, outer, 
+    expo_pdf, kde_from_sample, kde_from_pmf, items, outer, 
     Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
     collect_vals, collect_func, marginal
 # from Base:
@@ -15,7 +15,7 @@ export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), i
 export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, std, modes, mode, skewness, kurtosis, entropy, mgf, cf
 # from Plot:
-export plot, plot!
+export plot, plot!, contour, contour!, surface, surface!
 
 import Plots: plot, plot!, bar, heatmap, heatmap!, contour, contour!, surface, surface!
 
@@ -289,6 +289,10 @@ function kde_from_sample(d, q_min, q_max, q_n)
     # seems to alternate signs which is a no-no for Distributions.Categorical
     ps = normalize([x < 1e-12 ? 0 : x for x in ps])
     pmf_from_seq(qs, normalize(ps))
+end
+
+function kde_from_pmf(pmf:: Pmf)
+    kde_from_sample(probs(pmf), minimum(values(pmf)), maximum(values(pmf)), length(values(pmf)))
 end
 
 function pmf_from_dist(vals, dist::UnivariateDistribution)
@@ -623,8 +627,16 @@ function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys
     end
 end
 
-function surface(j::Joint, kwargs...)
-    surface(j.xs, j.ys, j.M, kwargs...)
+function contour(j::Joint; kwargs...)
+    contour(j.xs, j.ys, j.M; kwargs...)
+end
+
+function contour!(j::Joint; kwargs...)
+    contour!(j.xs, j.ys, j.M; kwargs...)
+end
+
+function surface(j::Joint; kwargs...)
+    surface(j.xs, j.ys, j.M; kwargs...)
 end
 
 abstract type AbstractDistFunction end
