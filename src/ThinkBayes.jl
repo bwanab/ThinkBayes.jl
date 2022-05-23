@@ -2,13 +2,13 @@ module ThinkBayes
 
 export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
-    binom_pmf, normalize, add_dist, sub_dist, mult_dist, make_binomial, loc, df_to_matrix,
+    binom_pmf, normalize, add_dist, sub_dist, mult_dist, div_dist, make_binomial, loc, df_to_matrix,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
     expo_pdf, kde_from_sample, kde_from_pmf, items, outer, 
     Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals, collect_func, marginal
+    collect_vals, collect_func, marginal, stack
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -30,6 +30,7 @@ import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf,
 import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/), isapprox
 
 using DataFrames
+import DataFrames: stack
 using Interpolations
 using KernelDensity
 
@@ -564,6 +565,30 @@ end
 
 (+)(d1::Joint, d2::Joint) = Joint(d1.M .+ d2.M, d1.xs, d2.xs)
 
+"""
+stack(j::Joint)
+
+flatten a joint distribution to two vectors.
+The first is a vector of tuples of all combinations of the xs, ys
+The second is a vector of the equivalent probabilities.
+
+So, the value of (x, y) in the first vector is the same index as 
+the probability of the xth row and the yth column.
+
+Thus, a joint that looks like:
+
+    1   2
+3  0.5  0.2
+4  0.1  0.4
+
+will look like:
+([(1,3), (1,4) (2,3), (2,4)], [0.5, 0.1, 0.2, 0.4])
+"""
+function stack(j::Joint)
+    vals = [(x, y) for x in j.xs for y in j.ys]
+    probs = vec(j.M)
+    (vals, probs)
+end
 
 function show(io::IO, j::Joint)
     show(joint_to_df(j))

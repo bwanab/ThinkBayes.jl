@@ -207,8 +207,10 @@ function update_norm_summary(prior, data)
 	n₁, m₁, s₁ = data
 	like1func(m,s) = pdf(Normal(m, s/√n₁), m₁)
 	like₁ = outer(like1func, prior.xs, prior.ys);
+	println(like₁)
 	like2func(m, s) = pdf(Chisq(n₁ - 1), n * s₁^2 / s^2)
 	like₂ = outer(like2func, prior.xs, prior.ys)
+	println(like₂)
 	prior * (like₁ .* like₂)
 end
 
@@ -340,6 +342,150 @@ credible_interval(pmf_diff2, 0.9)
 # ╔═╡ 6449db62-e9c7-41ac-a40b-f0055c6ea30d
 plot(pmf_diff2)
 
+# ╔═╡ d095ac67-1ec2-4988-96ad-964bfd4465ea
+md"_exercise 13.2_"
+
+# ╔═╡ 9061b2f0-c7a2-424a-b5d6-892dd5feacb3
+function sample_joint(joint, size)
+	(vs, ps) = stack(joint)
+	p = pmf_from_seq(vs, ps)
+	rand(p, size)
+end
+
+# ╔═╡ 06a07103-9f69-4a0f-927f-26ddd91680fd
+sample_treated = sample_joint(posterior_treated, 1000)
+
+# ╔═╡ 7da27236-27fd-473d-bc52-1916c6a77952
+sample_control = sample_joint(posterior_control, 1000)
+
+# ╔═╡ 8f77739c-81d8-43c4-839f-1c80ea63761e
+effect_size = [((u₁ - u₂)/((σ₁ + σ₂)/2)) for ((u₁, σ₁), (u₂, σ₂)) in zip(sample_treated, sample_control)]
+
+# ╔═╡ 4af12148-36a4-469d-97f9-b4e142e242a4
+pmf = kde_from_sample(effect_size, minimum(effect_size), maximum(effect_size), 101);
+
+# ╔═╡ 688a9126-ebcf-4c3b-90c8-37526f06fb28
+plot(pmf)
+
+# ╔═╡ 520eb429-18c9-4257-b296-456b9c04e9a3
+cdf = cdf_from_seq(effect_size);
+
+# ╔═╡ 6d2138b1-857c-4409-bc4c-99c39f7d146c
+plot(cdf)
+
+# ╔═╡ 8e430f7a-372e-443e-9312-b189e5fe5e46
+mean(cdf), mean(pmf)
+
+# ╔═╡ ee8f32fa-82ee-4bb9-a15a-eeb029b8baf1
+md"_exercise 13.3"
+
+# ╔═╡ 7d2d821d-35e2-411b-95d0-4217ff6d6d65
+md"""here's the easy, peasy solution
+
+We know the mean is 80. 5 students got over 90 which means 20% of the students.
+
+Find the std that gives just over 20% for ccdf of 90
+"""
+
+# ╔═╡ d9842689-1f69-4776-926b-71b8b842f391
+mu1 = 81
+
+# ╔═╡ 4fdd9be7-de78-498c-9648-39965a4f0bcd
+
+
+# ╔═╡ f4d05f19-d140-449e-92c3-5a66a889d60f
+pct_over_90 = 5 / 25
+
+# ╔═╡ b7d3a3f8-1b9a-4238-b32a-7bc728fe01a6
+for x in range(1, 20, 100)
+	d = Normal(mu1, x)
+	if ccdf(d, 90) > pct_over_90
+		print("the std is about $(x)")
+		break
+	end
+end
+
+# ╔═╡ 9f526288-6c61-450b-aa3b-7c9c5e22f445
+md"now the right way"
+
+# ╔═╡ fd9bc2da-f062-4cef-93bc-10f932255bb3
+hypos = range(1, 51, 101)
+
+# ╔═╡ c4afb792-7b73-464c-86a4-cf14fd54b899
+pgt90 = [ccdf(Normal(mu1, x), 90) for x in hypos]
+
+# ╔═╡ d5805040-fa2f-4746-9f04-2d3f9adfed1c
+likelihood_1 = [pdf(Binomial(25, x), 5) for x in pgt90];
+
+# ╔═╡ 115e20cc-fadd-4fe2-b82a-1cd90cad2035
+prior_1 = pmf_from_seq(hypos);
+
+# ╔═╡ 2f58da97-7011-4818-83fa-edf16961e63a
+posterior_1 = prior_1 * likelihood_1;
+
+# ╔═╡ daf4d854-dc40-4ccb-8ca9-0019b319324c
+plot(posterior_1)
+
+# ╔═╡ 58aeb048-62f5-4287-bb27-7761a445fad4
+max_prob(posterior_1)
+
+# ╔═╡ 4fc53029-d832-4508-a9b3-096ce1547d5b
+pgt60 = [ccdf(Normal(mu1, x), 60) for x in hypos]
+
+# ╔═╡ d5e05822-16c3-4703-8615-efa3352135e6
+likelihood_2 = pgt60 .^ 25
+
+# ╔═╡ b0904a71-f8cd-4a14-88a3-a7cf55c5c660
+plot(hypos, likelihood_2)
+
+# ╔═╡ 2b96fd3b-2536-4bbd-9100-40249a2864bb
+posterior_2 = prior_1 * (likelihood_1 .* likelihood_2);
+
+# ╔═╡ c9cc9041-e279-4333-bbd0-e71b0aca56c7
+begin
+	plot(posterior_1, label="Posterior 1")
+	plot!(posterior_2, label="Posterior 2")
+end
+
+# ╔═╡ a16c6b5f-6017-452f-a0ec-161983cf9323
+mean(posterior_2)
+
+# ╔═╡ d1909b2d-0ed6-42d8-b7b4-ad7245499e5d
+credible_interval(posterior_2, 0.9)
+
+# ╔═╡ 4c5df011-ae82-40a0-be74-c17ffdbdd3e8
+md"_exercise 13.3_"
+
+# ╔═╡ ac3b3c2d-4b24-42c8-8ccc-ce0e3e6705be
+8.27/178
+
+# ╔═╡ 3836fc2f-d930-4697-80a8-8a62f4c84ea7
+function make_posterior(m, s)
+	mqs = range(m -0.1, m+0.1, 101)
+	prior_mu = pmf_from_seq(mqs)
+	sqs = range(s - 0.1, s+0.1, 101)
+	prior_sigma = pmf_from_seq(sqs)
+	make_joint(*, prior_mu, prior_sigma)	
+end
+
+# ╔═╡ 5879cf23-46b9-4f67-b17c-2ea5f391fdae
+begin
+	men = (n=154407, mean=178, std=8.27)
+	men_prior = make_posterior(men.mean, men.std)
+end
+
+# ╔═╡ 284e36c3-0872-492f-9fdb-35bdd2b20cfd
+posterior_men = update_norm_summary(men_prior, men)
+
+# ╔═╡ 4cfede9f-e433-4e5d-8820-ff256db3f584
+plot(pmf_from_dist(range(150000, 160000, 101), Chisq(154000)))
+
+# ╔═╡ 02aab39e-5d0a-4b9f-8031-77aa341b3914
+pdf(Chisq(men.n), men.n * (men.std^2 / 8.2))
+
+# ╔═╡ b71df4b8-dd9a-4ace-a604-76b77e5fc6b3
+
+
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
 # ╠═a6de7ccf-6512-4c38-b577-ade3fab54c27
@@ -423,3 +569,42 @@ plot(pmf_diff2)
 # ╠═ba73c7d0-bf14-4d08-8f91-6585ec77fa23
 # ╠═71452494-7caf-48db-8e37-e5fa0ba9eaf0
 # ╠═6449db62-e9c7-41ac-a40b-f0055c6ea30d
+# ╟─d095ac67-1ec2-4988-96ad-964bfd4465ea
+# ╠═9061b2f0-c7a2-424a-b5d6-892dd5feacb3
+# ╠═06a07103-9f69-4a0f-927f-26ddd91680fd
+# ╠═7da27236-27fd-473d-bc52-1916c6a77952
+# ╠═8f77739c-81d8-43c4-839f-1c80ea63761e
+# ╠═4af12148-36a4-469d-97f9-b4e142e242a4
+# ╠═688a9126-ebcf-4c3b-90c8-37526f06fb28
+# ╠═520eb429-18c9-4257-b296-456b9c04e9a3
+# ╠═6d2138b1-857c-4409-bc4c-99c39f7d146c
+# ╠═8e430f7a-372e-443e-9312-b189e5fe5e46
+# ╟─ee8f32fa-82ee-4bb9-a15a-eeb029b8baf1
+# ╟─7d2d821d-35e2-411b-95d0-4217ff6d6d65
+# ╠═d9842689-1f69-4776-926b-71b8b842f391
+# ╠═4fdd9be7-de78-498c-9648-39965a4f0bcd
+# ╠═f4d05f19-d140-449e-92c3-5a66a889d60f
+# ╠═b7d3a3f8-1b9a-4238-b32a-7bc728fe01a6
+# ╟─9f526288-6c61-450b-aa3b-7c9c5e22f445
+# ╠═fd9bc2da-f062-4cef-93bc-10f932255bb3
+# ╠═c4afb792-7b73-464c-86a4-cf14fd54b899
+# ╠═d5805040-fa2f-4746-9f04-2d3f9adfed1c
+# ╠═115e20cc-fadd-4fe2-b82a-1cd90cad2035
+# ╠═2f58da97-7011-4818-83fa-edf16961e63a
+# ╠═daf4d854-dc40-4ccb-8ca9-0019b319324c
+# ╠═58aeb048-62f5-4287-bb27-7761a445fad4
+# ╠═4fc53029-d832-4508-a9b3-096ce1547d5b
+# ╠═d5e05822-16c3-4703-8615-efa3352135e6
+# ╠═b0904a71-f8cd-4a14-88a3-a7cf55c5c660
+# ╠═2b96fd3b-2536-4bbd-9100-40249a2864bb
+# ╠═c9cc9041-e279-4333-bbd0-e71b0aca56c7
+# ╠═a16c6b5f-6017-452f-a0ec-161983cf9323
+# ╠═d1909b2d-0ed6-42d8-b7b4-ad7245499e5d
+# ╟─4c5df011-ae82-40a0-be74-c17ffdbdd3e8
+# ╠═ac3b3c2d-4b24-42c8-8ccc-ce0e3e6705be
+# ╠═3836fc2f-d930-4697-80a8-8a62f4c84ea7
+# ╠═5879cf23-46b9-4f67-b17c-2ea5f391fdae
+# ╠═284e36c3-0872-492f-9fdb-35bdd2b20cfd
+# ╠═4cfede9f-e433-4e5d-8820-ff256db3f584
+# ╠═02aab39e-5d0a-4b9f-8031-77aa341b3914
+# ╠═b71df4b8-dd9a-4ace-a604-76b77e5fc6b3
