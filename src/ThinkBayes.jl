@@ -292,8 +292,10 @@ function kde_from_sample(d, q_min, q_max, q_n)
     pmf_from_seq(qs, normalize(ps))
 end
 
-function kde_from_pmf(pmf:: Pmf)
-    kde_from_sample(probs(pmf), minimum(values(pmf)), maximum(values(pmf)), length(values(pmf)))
+function kde_from_pmf(pmf:: Pmf, n=nothing)
+    vals = values(pmf)
+    n = n === nothing ? length(vals) : n
+    kde_from_sample(rand(pmf, n), minimum(vals), maximum(vals), n)
 end
 
 function pmf_from_dist(vals, dist::UnivariateDistribution)

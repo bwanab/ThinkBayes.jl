@@ -33,8 +33,7 @@ cdf_groups = combine(gdf, :Response => cdf_from_seq);
 md"And make a dictionary of the results"
 
 # ╔═╡ 6e616132-37a8-495c-9374-ce4e28f506e1
-#responses = Dict([(k, cdf_groups[findfirst(==(k), cdf_groups.Treatment), "Response_cdf_from_seq"]) for k in collect(cdf_groups.Treatment)]);
-responses = collect_vals(gdf, "Treatment", "Response")
+responses = collect_vals(gdf, "Treatment", "Response");
 
 # ╔═╡ 84691d70-de1b-4839-9969-48b7fc7322ce
 begin
@@ -61,7 +60,7 @@ prior = make_joint(*, prior_mu, prior_sigma);
 begin
 	val_map = collect_vals(gdf, "Treatment", "Response")
 	data = val_map["Control"]
-end
+end;
 
 # ╔═╡ 8d00d242-20e6-49e7-b5c5-21b3a2dfbff1
 md"## Likelihood"
@@ -207,10 +206,8 @@ function update_norm_summary(prior, data)
 	n₁, m₁, s₁ = data
 	like1func(m,s) = pdf(Normal(m, s/√n₁), m₁)
 	like₁ = outer(like1func, prior.xs, prior.ys);
-	println(like₁)
-	like2func(m, s) = pdf(Chisq(n₁ - 1), n * s₁^2 / s^2)
+	like2func(m, s) = pdf(Chisq(n₁ - 1), n₁ * s₁^2 / s^2)
 	like₂ = outer(like2func, prior.xs, prior.ys)
-	println(like₂)
 	prior * (like₁ .* like₂)
 end
 
@@ -319,7 +316,7 @@ _exercise 13.1_
 begin
 	pmf_std_control = marginal(posterior_control, 2)
 	pmf_std_treated = marginal(posterior_treated, 2)
-end
+end;
 
 # ╔═╡ 5bd617b3-5fbd-4a60-8b1b-27baaa5a9286
 begin
@@ -331,7 +328,7 @@ end
 prob_gt(pmf_std_control, pmf_std_treated)
 
 # ╔═╡ ef0bbaf6-c822-41c8-972c-59368f5928c5
-pmf_diff2 = sub_dist(pmf_std_control, pmf_std_treated)
+pmf_diff2 = sub_dist(pmf_std_control, pmf_std_treated);
 
 # ╔═╡ ba73c7d0-bf14-4d08-8f91-6585ec77fa23
 mean(pmf_diff2)
@@ -472,19 +469,50 @@ end
 begin
 	men = (n=154407, mean=178, std=8.27)
 	men_prior = make_posterior(men.mean, men.std)
-end
+end;
 
 # ╔═╡ 284e36c3-0872-492f-9fdb-35bdd2b20cfd
-posterior_men = update_norm_summary(men_prior, men)
+posterior_men = update_norm_summary(men_prior, men);
 
-# ╔═╡ 4cfede9f-e433-4e5d-8820-ff256db3f584
-plot(pmf_from_dist(range(150000, 160000, 101), Chisq(154000)))
+# ╔═╡ cd34ebd3-9ebd-44a8-93d4-c7d9bc74cb48
+contour(posterior_men)
 
-# ╔═╡ 02aab39e-5d0a-4b9f-8031-77aa341b3914
-pdf(Chisq(men.n), men.n * (men.std^2 / 8.2))
+# ╔═╡ 86c7253c-b10c-463e-8351-6be1d53e13d2
+begin
+	women = (n=254722, mean=163, std=7.75)
+	women_prior = make_posterior(women.mean, women.std)
+end;
 
-# ╔═╡ b71df4b8-dd9a-4ace-a604-76b77e5fc6b3
+# ╔═╡ 151508c6-3fa8-419b-8a60-2ce6df16b9f3
+posterior_women = update_norm_summary(women_prior, women);
 
+# ╔═╡ 4cafb3e8-4ec8-473b-8736-54806359cc52
+contour(posterior_women)
+
+# ╔═╡ 41f2e064-550d-484d-8514-3cde08959e26
+function get_posterior_cv(joint::Joint)
+	pmf_μ = marginal(joint, 1)
+	pmf_σ = marginal(joint, 2)
+	kde_from_pmf(div_dist(pmf_σ, pmf_μ), 101)
+end
+
+# ╔═╡ 886adea9-2578-42d5-8b55-713cb468a20a
+begin
+	pmf_cv_men = get_posterior_cv(posterior_men)
+	pmf_cv_women = get_posterior_cv(posterior_women)
+	plot(pmf_cv_men)
+	plot!(pmf_cv_women)
+	
+end
+
+# ╔═╡ c9377f27-b79c-43df-ab63-7359c9451749
+begin
+	ratio_cv = div_dist(pmf_cv_women, pmf_cv_men)
+	max_prob(ratio_cv)
+end
+
+# ╔═╡ 37040a37-6ef6-4410-812f-9d5fe2662330
+credible_interval(ratio_cv, 0.9)
 
 # ╔═╡ Cell order:
 # ╠═99f426c0-d54e-11ec-2e4c-a3fb9fe71e8c
@@ -605,6 +633,11 @@ pdf(Chisq(men.n), men.n * (men.std^2 / 8.2))
 # ╠═3836fc2f-d930-4697-80a8-8a62f4c84ea7
 # ╠═5879cf23-46b9-4f67-b17c-2ea5f391fdae
 # ╠═284e36c3-0872-492f-9fdb-35bdd2b20cfd
-# ╠═4cfede9f-e433-4e5d-8820-ff256db3f584
-# ╠═02aab39e-5d0a-4b9f-8031-77aa341b3914
-# ╠═b71df4b8-dd9a-4ace-a604-76b77e5fc6b3
+# ╠═cd34ebd3-9ebd-44a8-93d4-c7d9bc74cb48
+# ╠═86c7253c-b10c-463e-8351-6be1d53e13d2
+# ╠═151508c6-3fa8-419b-8a60-2ce6df16b9f3
+# ╠═4cafb3e8-4ec8-473b-8736-54806359cc52
+# ╠═41f2e064-550d-484d-8514-3cde08959e26
+# ╠═886adea9-2578-42d5-8b55-713cb468a20a
+# ╠═c9377f27-b79c-43df-ab63-7359c9451749
+# ╠═37040a37-6ef6-4410-812f-9d5fe2662330
