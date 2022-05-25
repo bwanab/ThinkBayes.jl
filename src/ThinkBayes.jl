@@ -5,10 +5,10 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     binom_pmf, normalize, add_dist, sub_dist, mult_dist, div_dist, make_binomial, loc, df_to_matrix,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
+    make_weibull_pmf, cdf_from_dist,
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
-    expo_pdf, kde_from_sample, kde_from_pmf, items, outer, 
-    Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals, collect_func, marginal, stack
+    expo_pdf, kde_from_sample, kde_from_pmf, items, outer
+    
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
@@ -237,6 +237,18 @@ end
 function make_poisson_pmf(lamda, vals)
     dist = Distributions.Poisson(lamda)
     pmf_from_dist(vals, dist)
+end
+
+"""
+make_weibull_pmf(lam, k) is set up to be similar to weilbull_dist in 
+chapter 14 of ThinkBayes2 but returning a pmf.
+"""
+function make_weibull_pmf(λ, k, vals)
+    dist = Distributions.Weibull(k, λ)
+    # pmf_from_dist(vals, dist) # can't do this since pdf(dist, 0) can === Inf 
+    p = [pdf(dist, x) for x in vals]
+    probs = map(x -> x === Inf ? 0.0 : x, p)
+    pmf_from_seq(vals, normalize(probs))
 end
 
 function make_exponential_pmf(lambda::Float64, vals::Vector{Float64})
@@ -522,6 +534,13 @@ function outer(f, x, y)
     d = f.(x', y)
 end
 
+"""
+Joint distributions.
+"""
+
+export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
+    collect_vals, collect_func, marginal, stack, index, columns
+
 struct Joint
     M::Matrix
     xs::Vector 
@@ -549,6 +568,9 @@ function row(j::Joint, y_val)
     index = findfirst(round.(j.ys, digits=3) .≈ y_val)
     j.M[index,:]
 end
+
+columns(j::Joint) = j.ys
+index(j::Joint) = j.xs
 
 function joint_to_df(j::Joint)
     DataFrame(hcat(j.ys, j.M), vcat(["Index"], string.(round.(j.xs, digits=3))))
@@ -667,7 +689,11 @@ function surface(j::Joint; kwargs...)
 end
 
 abstract type AbstractDistFunction end
-# CDF
+
+"""
+CDF
+"""
+
 export CDF, make_cdf, cdfs, make_pdf, max_dist, min_dist, cdf_from_seq
 
 struct CDF <: AbstractDistFunction
@@ -688,6 +714,9 @@ function make_cdf(vs, cs::Vector{Float64})
     CDF(DataFrame(Index=vs, cdf=cs), q_interp, c_interp)
 end
 
+function cdf_from_dist(vs, dist)
+    make_cdf(vs, cdf(dist, vs))
+end
 
 function values(cdf::CDF) 
     cdf.d.Index
@@ -780,7 +809,9 @@ function show(io::IO, ::MIME"text/html", p1::CDF)
     show(io, "text/html", p1.d)
 end
 
-# CCDF
+"""
+CCDF
+"""
 
 export make_ccdf
 
