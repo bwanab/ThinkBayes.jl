@@ -203,6 +203,15 @@ end
 # ╔═╡ da8dbaf3-f60c-4724-8dd9-931824b8dd9a
 md"## Light Bulbs"
 
+# ╔═╡ fec484b1-489f-460c-b261-a0b910619e41
+df = DataFrame(CSV.File(download("https://gist.github.com/epogrebnyak/7933e16c0ad215742c4c104be4fbdeb1/raw/c932bc5b6aa6317770c4cbf43eb591511fec08f9/lamps.csv")))
+
+# ╔═╡ 5a33aae0-dadb-444a-94fb-abc6bc80693a
+pmf_bulb = pmf_from_seq(df.h, counts=df.f)
+
+# ╔═╡ c0f6ed4a-918b-40b8-a99e-a05244977daa
+mean(pmf_bulb)
+
 # ╔═╡ Cell order:
 # ╠═11bfe214-db8f-11ec-24d9-21c6b862ea54
 # ╠═a0bf7ab3-541d-4182-ba67-5de432a53ff9
@@ -248,3 +257,6 @@ md"## Light Bulbs"
 # ╠═7f9e5a78-ee23-4cb6-ad2a-9b0c7e40a525
 # ╠═46cd7867-535f-4529-bade-ed291af492cf
 # ╟─da8dbaf3-f60c-4724-8dd9-931824b8dd9a
+# ╠═fec484b1-489f-460c-b261-a0b910619e41
+# ╠═5a33aae0-dadb-444a-94fb-abc6bc80693a
+# ╠═c0f6ed4a-918b-40b8-a99e-a05244977daa
