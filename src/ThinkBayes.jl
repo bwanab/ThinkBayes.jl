@@ -499,6 +499,8 @@ end
 This is the original make_mixture. I leave it here to show how
 it could be done with the components, but it's replaced below by 
 a version from Distributions.
+
+Well, it should be replaced, but I can't make the "better one" work :(
 """
 function make_mixture(pmf, pmf_seq)
     a = [probs(x) for x in pmf_seq]

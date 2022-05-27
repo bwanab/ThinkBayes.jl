@@ -204,13 +204,125 @@ end
 md"## Light Bulbs"
 
 # ╔═╡ fec484b1-489f-460c-b261-a0b910619e41
-df = DataFrame(CSV.File(download("https://gist.github.com/epogrebnyak/7933e16c0ad215742c4c104be4fbdeb1/raw/c932bc5b6aa6317770c4cbf43eb591511fec08f9/lamps.csv")))
+begin
+	df = DataFrame(CSV.File(download("https://gist.github.com/epogrebnyak/7933e16c0ad215742c4c104be4fbdeb1/raw/c932bc5b6aa6317770c4cbf43eb591511fec08f9/lamps.csv")))
+	first(df, 6)
+end
 
 # ╔═╡ 5a33aae0-dadb-444a-94fb-abc6bc80693a
-pmf_bulb = pmf_from_seq(df.h, counts=df.f)
+pmf_bulb = pmf_from_seq(df.h, counts=df.f);
 
 # ╔═╡ c0f6ed4a-918b-40b8-a99e-a05244977daa
 mean(pmf_bulb)
+
+# ╔═╡ bdb2e4d3-f70e-49a4-8bf8-22504b9bd239
+prior_lb_lam = pmf_from_seq(range(1000, 2000, 51));
+
+# ╔═╡ 690e00d0-b95a-4ac9-ae76-9989d2a94805
+prior_lb_k = pmf_from_seq(range(1, 10, 51));
+
+# ╔═╡ c35cb2f7-a085-4fda-b6a4-8f8a97b0ef99
+prior_bulb = make_joint(*, prior_lb_lam, prior_lb_k)
+
+# ╔═╡ c8e8a8c8-a98d-4738-b5f6-a78ab9c32de8
+data_bulb = reduce(vcat, fill.(df.h, df.f))
+
+# ╔═╡ 4e3475de-3bb0-4bd1-ba10-1eaabd80effb
+posterior_bulb = update_weibull(prior_bulb, data_bulb);
+
+# ╔═╡ 27fab0c7-519a-4545-8163-2de5dc8fcde5
+contour(posterior_bulb, size=(700, 500))
+
+# ╔═╡ 82c06b5b-d25c-42fb-b371-1bc4853e6aa1
+md"## Posterior Means"
+
+# ╔═╡ 0829edc2-16b7-46dd-b8ba-1d88253b3f50
+begin
+	post_mean(λ, k) = mean(Weibull(k, λ))
+	means = outer(post_mean, index(prior_bulb), columns(prior_bulb))
+end
+
+# ╔═╡ 1afe1b94-6a2a-487b-bf2e-bbd5dfb3a3a9
+prod_lb = posterior_bulb.M .* means
+
+# ╔═╡ e0e0eb36-0b74-4321-8b4c-b46c37a07a45
+sum(prod_lb)
+
+# ╔═╡ 444fd409-36a9-4474-a0b6-764bc63d7349
+function joint_weibull_mean(joint::Joint)
+	post_mean(λ, k) = mean(Weibull(k, λ))
+	means = outer(post_mean, index(joint), columns(joint))
+	prod = joint.M .* means
+	sum(prod)
+end
+
+# ╔═╡ c62a924e-8850-4b49-aa9a-73522a97e853
+joint_weibull_mean(posterior_bulb)
+
+# ╔═╡ 96e27f0f-cb7c-4b09-9102-00049ffa41c5
+md"## Incomplete Information"
+
+# ╔═╡ b4160ea6-36be-4901-b2d3-1e876690c46b
+function update_weibull_between(prior, data)
+	function wd_func(l, k)
+		dist = Weibull(k, l)
+		cdf1 = [cdf(dist, x) for x in data]
+		cdf2 = [cdf(dist, x-12) for x in data]
+		prod(cdf1 .- cdf2)
+	end
+	likelihood = outer(wd_func, index(prior), columns(prior))
+	prior * likelihood
+end
+
+# ╔═╡ fc0a31d1-4448-4118-beb8-d759ffb02dc4
+posterior_bulb2 = update_weibull_between(prior_bulb, data_bulb);
+
+# ╔═╡ a3a46bf3-0f74-4e48-92ec-bdbf018dd0b8
+contour(posterior_bulb, title="joint posterior distribution, light bulbs", xaxis=("λ"), yaxis=("k"))
+
+# ╔═╡ c905b96b-86ee-41d7-bd4c-1842d7fc6ee4
+joint_weibull_mean(posterior_bulb2), joint_weibull_mean(posterior_bulb)
+
+# ╔═╡ 64bc5799-75a1-4d27-acd2-5066643533dc
+md"## Posterior Predictive Distribution"
+
+# ╔═╡ 6b723760-1509-4b4b-bc68-dffb275900f3
+md"Given a λ = 1550, k = 4.25, how many bulbs will be dead after 1000 hours?"
+
+# ╔═╡ 93dddef3-08d3-4f14-8fbd-ca59ade80276
+prob_dead = cdf(Weibull(4.25, 1550), 1000)
+
+# ╔═╡ d82aff82-1359-429b-a702-e4a45ae13046
+md"Given n = 100 bulbs with this probability of dying:"
+
+# ╔═╡ 88a6a86f-6ac4-440b-be02-3642a4218e32
+dist_num_dead = make_binomial(100, prob_dead);
+
+# ╔═╡ d6c992db-ea62-4d71-b886-79ee13bd3213
+plot(dist_num_dead, label="known parameters", xaxis=("Number of dead bulbs"), yaxis=("PMF"), plot_title="Predictive distribution with known parameters")
+
+# ╔═╡ 24a5e8e2-b4ad-4ed7-9925-37a57623dc51
+ps_index, ps_vals = stack(posterior_bulb);
+
+# ╔═╡ f3d44c45-c421-4826-aaf0-3b79390c76c0
+begin
+	function make_pmf_seq(ps, t, n)
+		λ, k = ps
+		prob_dead = cdf(Weibull(k, λ), t)
+		make_binomial(n, prob_dead)
+	end
+	pmf_seq = [make_pmf_seq(x, 1000, 100) for x in ps_index]
+end
+
+# ╔═╡ ccb060f3-b6bf-4d03-8db5-02ab7fbe0cbb
+post_pred = make_mixture(pmf_from_seq(ps_index, ps_vals), pmf_seq);
+
+# ╔═╡ c2cc93b6-a1da-47e7-81b2-c89465c5beb1
+begin
+	plot(dist_num_dead, label="known parameters")
+	plot!(pmf_from_seq(1:101, probs(post_pred)), label="unknown parameters")
+	plot!(plot_title="Posterior predictive distribution", xaxis=("Number of dead bulbs"), yaxis=("PMF"))
+end
 
 # ╔═╡ Cell order:
 # ╠═11bfe214-db8f-11ec-24d9-21c6b862ea54
@@ -260,3 +372,30 @@ mean(pmf_bulb)
 # ╠═fec484b1-489f-460c-b261-a0b910619e41
 # ╠═5a33aae0-dadb-444a-94fb-abc6bc80693a
 # ╠═c0f6ed4a-918b-40b8-a99e-a05244977daa
+# ╠═bdb2e4d3-f70e-49a4-8bf8-22504b9bd239
+# ╠═690e00d0-b95a-4ac9-ae76-9989d2a94805
+# ╠═c35cb2f7-a085-4fda-b6a4-8f8a97b0ef99
+# ╠═c8e8a8c8-a98d-4738-b5f6-a78ab9c32de8
+# ╠═4e3475de-3bb0-4bd1-ba10-1eaabd80effb
+# ╠═27fab0c7-519a-4545-8163-2de5dc8fcde5
+# ╟─82c06b5b-d25c-42fb-b371-1bc4853e6aa1
+# ╠═0829edc2-16b7-46dd-b8ba-1d88253b3f50
+# ╠═1afe1b94-6a2a-487b-bf2e-bbd5dfb3a3a9
+# ╠═e0e0eb36-0b74-4321-8b4c-b46c37a07a45
+# ╠═444fd409-36a9-4474-a0b6-764bc63d7349
+# ╠═c62a924e-8850-4b49-aa9a-73522a97e853
+# ╟─96e27f0f-cb7c-4b09-9102-00049ffa41c5
+# ╠═b4160ea6-36be-4901-b2d3-1e876690c46b
+# ╠═fc0a31d1-4448-4118-beb8-d759ffb02dc4
+# ╠═a3a46bf3-0f74-4e48-92ec-bdbf018dd0b8
+# ╠═c905b96b-86ee-41d7-bd4c-1842d7fc6ee4
+# ╟─64bc5799-75a1-4d27-acd2-5066643533dc
+# ╟─6b723760-1509-4b4b-bc68-dffb275900f3
+# ╠═93dddef3-08d3-4f14-8fbd-ca59ade80276
+# ╟─d82aff82-1359-429b-a702-e4a45ae13046
+# ╠═88a6a86f-6ac4-440b-be02-3642a4218e32
+# ╠═d6c992db-ea62-4d71-b886-79ee13bd3213
+# ╠═24a5e8e2-b4ad-4ed7-9925-37a57623dc51
+# ╠═f3d44c45-c421-4826-aaf0-3b79390c76c0
+# ╠═ccb060f3-b6bf-4d03-8db5-02ab7fbe0cbb
+# ╠═c2cc93b6-a1da-47e7-81b2-c89465c5beb1
