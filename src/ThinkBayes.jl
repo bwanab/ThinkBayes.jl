@@ -10,14 +10,14 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     expo_pdf, kde_from_sample, kde_from_pmf, items, outer
     
 # from Base:
-export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
+export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox, transpose
 # from Distributions:
-export probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
+export probs, pdf, cdf, plot, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, std, modes, mode, skewness, kurtosis, entropy, mgf, cf
 # from Plot:
-export plot, plot!, contour, contour!, surface, surface!
+export plot, plot!, contour, contour!, surface, surface!, bar, bar!
 
-import Plots: plot, plot!, bar, heatmap, heatmap!, contour, contour!, surface, surface!
+import Plots: plot, plot!, bar, bar!, heatmap, heatmap!, contour, contour!, surface, surface!
 
 import Images: colorview
 import ImageTransformations: imresize
@@ -30,7 +30,7 @@ import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf,
 import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/), isapprox
 
 using DataFrames
-import DataFrames: stack
+import DataFrames: stack, unstack
 using Interpolations
 using KernelDensity
 
@@ -55,7 +55,7 @@ copy(d::Pmf) = Pmf(copy(d.values), Distributions.Categorical(copy(probs(d))))
 values(d::Pmf) = d.values
 function show(io::IO, d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
-    show(a)
+    show(io, a)
 end
 function show(io::IO, ::MIME"text/plain", d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
@@ -65,44 +65,47 @@ function show(io::IO, ::MIME"text/html", d::Pmf)
     a=DataFrame(Values=values(d), Probs=probs(d))
     show(io, "text/html", a)
 end
-display(d::Pmf) = show(d)
+#display(d::Pmf) = show(d)
 (*)(d::Pmf, likelihood) = mult_likelihood(d, likelihood)
 (==)(x::Pmf, y::Pmf) = (x.values == y.values) && (probs(x) == probs(y))
 
 
 # Plots
 nplot=1
-function plot(d::Pmf; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+function plot(d::Pmf; kwargs...)
     global nplot=1
-    plot(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+    plot(values(d), probs(d); kwargs...)
 end
 
-function plot!(d::Pmf; label=nothing)
+function plot!(d::Pmf; label=nothing, kwargs...)
     global nplot += 1
     if label===nothing
         label="y"*string(ThinkBayes.nplot)
     end
-    plot!(values(d), probs(d), label=label)
+    plot!(values(d), probs(d); label=label, kwargs...)
 end
 
-function bar(d::Pmf; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
-    bar(values(d), probs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+function bar(d::Pmf; kwargs...)
+    bar(values(d), probs(d); kwargs...)
+end
+function bar!(d::Pmf; kwargs...)
+    bar!(values(d), probs(d); kwargs...)
 end
 
-function plot(bs::Vector{Pmf})
+function plot(bs::Vector{Pmf}; kwargs...)
 	bs_len = length(bs)
 	xs = values(bs[1])
 	xlen = length(xs)
 	ps = reshape(reduce(vcat, [probs(b) for b in bs]), xlen, bs_len)
 	titles = reshape(["machine"*string(i) for i in 1:bs_len], 1, bs_len)
 	#bar(xs, ps, label=titles, layout=(2,2))
-	plot(xs, ps, label=titles, layout=(2,2))
+	plot(xs, ps, label=titles, layout=(2,2); kwargs...)
 end
 
-function plot(d::UnivariateDistribution; label=nothing)
+function plot(d::UnivariateDistribution; kwargs...)
     low = mean(d) - 2 * std(d)
     high = mean(d) + 2 * std(d)
-    plot(pmf_from_dist(range(low, high, length=51), d))
+    plot(pmf_from_dist(range(low, high, length=51), d); kwargs...)
 end
 
 
@@ -541,7 +544,7 @@ Joint distributions.
 """
 
 export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals, collect_func, marginal, stack, index, columns
+    collect_vals, collect_func, marginal, stack, unstack, index, columns
 
 struct Joint
     M::Matrix
@@ -616,6 +619,20 @@ function stack(j::Joint)
     (vals, probs)
 end
 
+"""
+The inverse of stack.
+
+For qs [(1,3), (2,3)]
+"""
+function unstack(qs, vs)
+    xs = unique([x for (x,y) in qs])
+    ys = unique([y for (x,y) in qs])
+    M = reshape(vs, length(ys), length(xs))
+    Joint(M, xs, ys)
+end
+
+transpose(j::Joint) = Joint(transpose(j.M), columns(j), index(j))
+
 function show(io::IO, j::Joint)
     show(joint_to_df(j))
 end
@@ -626,6 +643,7 @@ function show(io::IO, ::MIME"text/html", j::Joint)
     show(io, "text/html", joint_to_df(j))
 end
 
+(==)(j1::Joint, j2::Joint) = (index(j1) == index(j2)) && (columns(j1) == columns(j2)) && (j1.M == j2.M)
 
 """
 A simple visualization. 
@@ -754,21 +772,24 @@ prob_gt(c::CDF, x) = prob_x(c, x, prob_gt)
 
 median(c::CDF) = cdf(c, 0.5)
 
-function plot(d::AbstractDistFunction; xaxis="xs", yaxis="ys", label="y1", plot_title="plot")
+function plot(d::AbstractDistFunction; kwargs...)
     global nplot=1
-    plot(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+    plot(values(d), cdfs(d); kwargs...)
 end
 
-function plot!(d::AbstractDistFunction; label=nothing)
+function plot!(d::AbstractDistFunction; label=nothing, kwargs...)
     global nplot += 1
     if label===nothing
         label="y"*string(ThinkBayes.nplot)
     end
-    plot!(values(d), cdfs(d), label=label)
+    plot!(values(d), cdfs(d), label=label; kwargs...)
 end
 
-function bar(d::AbstractDistFunction; xaxis=("xs"), yaxis=("ys"), label="y1", plot_title="bar plot")
-    bar(values(d), cdfs(d), xaxis=xaxis, yaxis=yaxis, label=label, plot_title=plot_title)
+function bar(d::AbstractDistFunction; kwargs...)
+    bar(values(d), cdfs(d), kwargs...)
+end
+function bar!(d::AbstractDistFunction; kwargs...)
+    bar!(values(d), cdfs(d), kwargs...)
 end
 
 

@@ -1,7 +1,8 @@
 module Tst
 
-include("../src/ThinkBayes.jl")
-using .ThinkBayes
+#include("../src/ThinkBayes.jl")
+#using .ThinkBayes
+using ThinkBayes
 using DataFrames
 using Distributions: Beta
 using Plots
@@ -109,5 +110,11 @@ using Test
     d = collect_func(gdf, pmf_from_seq, "a", "b")
     @test round(pdf(d["this"], 4), digits=4) ≈ 0.1667
     @test round(pdf(d["that"], 10), digits=4) ≈ 0.1667
+    a = [1,2]
+    b = [4,5,6]
+    j = Joint(outer(*, a, b), a, b)
+    qs,ps = stack(j)
+    j2 = unstack(qs, ps)
+    @test j2 == j
 end
 end
