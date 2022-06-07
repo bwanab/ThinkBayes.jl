@@ -18,6 +18,50 @@ using DataFrames, CSV, Plots, Distributions, PlutoUI
 # ╔═╡ b240adda-091b-45ac-878d-302f7b18d610
 TableOfContents()
 
+# ╔═╡ 55641895-d5ee-40b4-92b2-cafbd61375e4
+md""" ## Implementation note:
+
+A very common pattern that is used in ThinkBayes2 is 
+
+1. Create a mesh of two or three vectors
+2. Compute densities from the resulting meshs.
+3. Compute a likelihood from those densities
+
+After some searching, I found that mesh is considered unjulian that it's better to
+use matrix operations directly. With some experimentation I've determined the julian pattern to be:
+
+1. create a function on two variables that does a single computation of 3 (above).
+2. Use the outer function to build the full data.
+
+Thus, where ThinkBayes2 would have:
+
+>val = 100
+
+>amesh, bmesh = np.meshgrid(as, bs)
+
+>likelihoods = normal(amesh, bmesh).pdf(val)
+
+This implementation uses
+
+>nfunc(mu, sigma) = pdf(Normal(mu, sigma))
+
+>likelihoods = outer(nfunc, as, bs)
+
+Or, in a more complex example:
+
+>amesh, bmesh, cmesh = np.meshgrid(as, bs, cs)
+
+>densities = normal(amesh, bmesh).pdf(cmesh) # results in a 3 dimensional array.
+
+>likelihoods = densities.prod(axis=2)
+
+This implementation uses:
+
+>nfunc(mu, sigma) = prod([pdf(Normal(mu, sigma), x) for x in cs]
+
+>likelihoods = outer(nfunc, as, bs)
+"""
+
 # ╔═╡ f1824111-27c6-4027-a3b3-0552f2a154d4
 md"## The Weibull Distribution"
 
@@ -222,7 +266,7 @@ prior_lb_lam = pmf_from_seq(range(1000, 2000, 51));
 prior_lb_k = pmf_from_seq(range(1, 10, 51));
 
 # ╔═╡ c35cb2f7-a085-4fda-b6a4-8f8a97b0ef99
-prior_bulb = make_joint(*, prior_lb_lam, prior_lb_k)
+prior_bulb = make_joint(*, prior_lb_lam, prior_lb_k);
 
 # ╔═╡ c8e8a8c8-a98d-4738-b5f6-a78ab9c32de8
 data_bulb = reduce(vcat, fill.(df.h, df.f))
@@ -240,10 +284,10 @@ md"## Posterior Means"
 begin
 	post_mean(λ, k) = mean(Weibull(k, λ))
 	means = outer(post_mean, index(prior_bulb), columns(prior_bulb))
-end
+end;
 
 # ╔═╡ 1afe1b94-6a2a-487b-bf2e-bbd5dfb3a3a9
-prod_lb = posterior_bulb.M .* means
+prod_lb = posterior_bulb.M .* means;
 
 # ╔═╡ e0e0eb36-0b74-4321-8b4c-b46c37a07a45
 sum(prod_lb)
@@ -304,6 +348,9 @@ plot(dist_num_dead, label="known parameters", xaxis=("Number of dead bulbs"), ya
 # ╔═╡ 24a5e8e2-b4ad-4ed7-9925-37a57623dc51
 ps_index, ps_vals = stack(posterior_bulb);
 
+# ╔═╡ 65e2c032-e16c-4140-b0eb-1725f50a87a2
+
+
 # ╔═╡ f3d44c45-c421-4826-aaf0-3b79390c76c0
 begin
 	function make_pmf_seq(ps, t, n)
@@ -312,7 +359,7 @@ begin
 		make_binomial(n, prob_dead)
 	end
 	pmf_seq = [make_pmf_seq(x, 1000, 100) for x in ps_index]
-end
+end;
 
 # ╔═╡ ccb060f3-b6bf-4d03-8db5-02ab7fbe0cbb
 post_pred = make_mixture(pmf_from_seq(ps_index, ps_vals), pmf_seq);
@@ -324,10 +371,167 @@ begin
 	plot!(plot_title="Posterior predictive distribution", xaxis=("Number of dead bulbs"), yaxis=("PMF"))
 end
 
+# ╔═╡ 371039d5-41c2-4c3b-b9fb-5c35008b8b0d
+md"""## Exercises
+
+_exercise 14.1_"""
+
+# ╔═╡ 62cb708a-4373-4e94-9fe3-51d532f32116
+begin
+	t = 1000
+	prob_dead_func(λ, k) = cdf(Weibull(k, λ), t)
+	pd = outer(prob_dead_func, index(prior_bulb), columns(prior_bulb))
+end
+
+# ╔═╡ bd2cf7c6-c61a-44da-8431-4fe32e581661
+begin
+	k = 20
+	n = 100
+	likelihood = [pdf(Binomial(n, x), k) for x in pd]
+end
+
+# ╔═╡ 4eda111d-1b65-4ace-a2c8-d370041b3a24
+begin
+	posterior_bulb3 = posterior_bulb * likelihood
+	contour(posterior_bulb3, size=(700,500))
+end
+
+# ╔═╡ 2f972e0e-3be5-41de-92f9-2a82ef6a8b59
+joint_weibull_mean(posterior_bulb3)
+
+# ╔═╡ 715c3888-a0ab-4c6b-9b97-288b0d41a5c8
+md"_exercise 14.2_"
+
+# ╔═╡ 67f69dd0-ae4b-4eb8-8ee7-e4deb3df5a82
+begin
+	weather = DataFrame(CSV.File(download("https://github.com/AllenDowney/ThinkBayes2/raw/master/data/2203951.csv")))
+	first(weather, 6)
+end
+
+# ╔═╡ b1699203-4599-466b-baf9-0be73d28e000
+weather.rained = weather.PRCP .> 0
+
+# ╔═╡ afaae38a-b91a-4f1c-b3ae-0ee9231da299
+sum(weather.rained)
+
+# ╔═╡ 9ec5d38a-c9f7-4880-bdfc-39e82eb648ab
+begin
+	prcp = weather[weather.rained, "PRCP"]
+	println("mean:", mean(prcp))
+	println("std: ", std(prcp))
+	println("min: ", minimum(prcp))
+	println("max: ", maximum(prcp))
+end
+
+# ╔═╡ cc1b2a22-3cb0-4c12-86ae-08b175d6daff
+begin
+	cdf_data = cdf_from_seq(prcp)
+	plot(cdf_data, xaxis=("total rainfall (in)"), yaxis=("CDF"), plot_title="Distribution of rainfall on days it rained")
+end
+
+# ╔═╡ 96bd3ade-94e5-4bf3-97af-6d7a1d0f737b
+g = fit(Gamma, prcp)
+
+# ╔═╡ ea7fc339-7325-4e00-8311-e40015a3a836
+md"My first attempt was pretty lame :("
+
+# ╔═╡ 841a4949-3e90-4be4-b410-a9f456529432
+prior_rain_dist = rand(g, 51)
+
+# ╔═╡ cf09e2f1-790a-4f16-bc7e-00ba7db7da17
+mean(prior_rain_dist), std(prior_rain_dist)
+
+# ╔═╡ 706eb874-fba7-4db9-8b37-4353997b8701
+prior_rain_pmf = kde_from_sample(prior_rain_dist, 0.0, 1.5, 14);
+
+# ╔═╡ 3d9878e9-1f2d-40c6-8186-aa6ed3ab7083
+posterior_rain = prior_rain_pmf * prcp;
+
+# ╔═╡ 12e2f574-0e32-46f4-a386-2abb2ed6f636
+prob_ge(posterior_rain, 1.5)
+
+# ╔═╡ a750ba38-28bf-4685-b2a6-b35ea45030e8
+md"End of my first attempt - here's how Allen did it:"
+
+# ╔═╡ 6feec10e-a79f-49f9-8713-49d54c5be705
+prior_α = pmf_from_seq(range(0.01, 2, 51));
+
+# ╔═╡ 9152632f-224c-4bb1-8974-9b006d79535f
+prior_θ = pmf_from_seq(range(0.01, 1.5, 51));
+
+# ╔═╡ fe200df5-61bd-4af5-8af2-05b8fcce5d3c
+rain_prior = make_joint(*, prior_α, prior_θ);
+
+# ╔═╡ 85888f00-4f0f-40a6-a301-78cf2b74d5f0
+begin
+	gamma_func(α, θ) = prod([pdf(Gamma(α, θ), d) for d in prcp])
+	rain_likelihood = outer(gamma_func, index(rain_prior), columns(rain_prior))
+end;
+
+# ╔═╡ 35ea1d78-123a-47ef-a1ba-31aed02a1c4a
+sum(rain_likelihood)
+
+# ╔═╡ 68484602-712f-4668-8be5-dc55f7a6e5fd
+posterior_rain2 = rain_prior * rain_likelihood;
+
+# ╔═╡ e74412cc-3940-44f8-a5d4-43ae6ecc0f86
+contour(posterior_rain2, yaxis=("θ"), xaxis=("α"), title="Posterior distribution, parameters of a gamma distribution", size=(700, 500))
+
+# ╔═╡ fcf7e103-0dec-4597-968f-14e5ab8e9860
+begin
+	posterior_α = marginal(posterior_rain2, 1)
+	posterior_θ = marginal(posterior_rain2, 2)
+end;
+
+# ╔═╡ 4a0aa532-e4b2-4249-82f4-d92fb7921474
+plot(posterior_α, xaxis=("α"), yaxis=("PDF"), plot_title="Posterior marginal distribution of α")
+
+# ╔═╡ aa1edd0f-4239-4ad5-b971-4e3e58b23fff
+mean(posterior_α), credible_interval(posterior_α, 0.9)
+
+# ╔═╡ b17b5d0b-04a9-48d9-9895-d24d802b3984
+plot(posterior_θ, xaxis=("θ"), yaxis=("PDF"), plot_title="Posterior marginal distribution of θ")
+
+# ╔═╡ 1886a63f-2b35-4222-a612-6f7e552f2f2d
+mean(posterior_θ), credible_interval(posterior_θ, 0.9)
+
+# ╔═╡ 2a8a410d-7c1c-4dfb-9206-dd9efbed2a9e
+rain_index, rain_vals = stack(posterior_rain2)
+
+# ╔═╡ 81e3b595-8025-40bb-8598-9a2ee9b65ed6
+begin
+	function make_pmf_gamma_seq(ps, qs)
+		α, θ = ps
+		dist = Gamma(α, θ)
+		pmf_from_dist(qs, dist)
+	end
+	rain_qs = range(0.01, 2, 101)
+	pmf_gamma_seq = [make_pmf_gamma_seq(x, rain_qs) for x in rain_index]
+end;
+
+# ╔═╡ ed6e1952-681a-4303-ba24-5d408fb9bedb
+rain_post_pred = make_mixture(pmf_from_seq(rain_index, rain_vals), pmf_gamma_seq);
+
+# ╔═╡ 070d7fc2-30d2-4150-9dd4-acc99dbfc3ea
+begin
+	rain_pmf = pmf_from_seq(rain_qs, probs(rain_post_pred))
+	rain_cdf = make_cdf(rain_pmf)
+	plot(rain_cdf)
+	plot!(plot_title="Posterior predictive distribution of rainfall")
+	plot!(xaxis=("Total rainfall (in)"), yaxis=("CDF"))
+end
+
+# ╔═╡ f4107cb8-68c0-49de-a2bb-3a670314837d
+p_gt = prob_gt(rain_pmf, 1.5)
+
+# ╔═╡ 580df68f-0165-4be7-84fa-23258f63d741
+1 / p_gt
+
 # ╔═╡ Cell order:
 # ╠═11bfe214-db8f-11ec-24d9-21c6b862ea54
 # ╠═a0bf7ab3-541d-4182-ba67-5de432a53ff9
 # ╠═b240adda-091b-45ac-878d-302f7b18d610
+# ╟─55641895-d5ee-40b4-92b2-cafbd61375e4
 # ╟─f1824111-27c6-4027-a3b3-0552f2a154d4
 # ╠═5e16f035-5003-4b6e-851b-79eb47716120
 # ╠═90b7bc4c-9cd5-4ecc-b4f6-a3e9c70072b0
@@ -396,6 +600,44 @@ end
 # ╠═88a6a86f-6ac4-440b-be02-3642a4218e32
 # ╠═d6c992db-ea62-4d71-b886-79ee13bd3213
 # ╠═24a5e8e2-b4ad-4ed7-9925-37a57623dc51
+# ╠═65e2c032-e16c-4140-b0eb-1725f50a87a2
 # ╠═f3d44c45-c421-4826-aaf0-3b79390c76c0
 # ╠═ccb060f3-b6bf-4d03-8db5-02ab7fbe0cbb
 # ╠═c2cc93b6-a1da-47e7-81b2-c89465c5beb1
+# ╟─371039d5-41c2-4c3b-b9fb-5c35008b8b0d
+# ╠═62cb708a-4373-4e94-9fe3-51d532f32116
+# ╠═bd2cf7c6-c61a-44da-8431-4fe32e581661
+# ╠═4eda111d-1b65-4ace-a2c8-d370041b3a24
+# ╠═2f972e0e-3be5-41de-92f9-2a82ef6a8b59
+# ╟─715c3888-a0ab-4c6b-9b97-288b0d41a5c8
+# ╠═67f69dd0-ae4b-4eb8-8ee7-e4deb3df5a82
+# ╠═b1699203-4599-466b-baf9-0be73d28e000
+# ╠═afaae38a-b91a-4f1c-b3ae-0ee9231da299
+# ╠═9ec5d38a-c9f7-4880-bdfc-39e82eb648ab
+# ╠═cc1b2a22-3cb0-4c12-86ae-08b175d6daff
+# ╠═96bd3ade-94e5-4bf3-97af-6d7a1d0f737b
+# ╟─ea7fc339-7325-4e00-8311-e40015a3a836
+# ╠═841a4949-3e90-4be4-b410-a9f456529432
+# ╠═cf09e2f1-790a-4f16-bc7e-00ba7db7da17
+# ╠═706eb874-fba7-4db9-8b37-4353997b8701
+# ╠═3d9878e9-1f2d-40c6-8186-aa6ed3ab7083
+# ╠═12e2f574-0e32-46f4-a386-2abb2ed6f636
+# ╟─a750ba38-28bf-4685-b2a6-b35ea45030e8
+# ╠═6feec10e-a79f-49f9-8713-49d54c5be705
+# ╠═9152632f-224c-4bb1-8974-9b006d79535f
+# ╠═fe200df5-61bd-4af5-8af2-05b8fcce5d3c
+# ╠═85888f00-4f0f-40a6-a301-78cf2b74d5f0
+# ╠═35ea1d78-123a-47ef-a1ba-31aed02a1c4a
+# ╠═68484602-712f-4668-8be5-dc55f7a6e5fd
+# ╠═e74412cc-3940-44f8-a5d4-43ae6ecc0f86
+# ╠═fcf7e103-0dec-4597-968f-14e5ab8e9860
+# ╠═4a0aa532-e4b2-4249-82f4-d92fb7921474
+# ╠═aa1edd0f-4239-4ad5-b971-4e3e58b23fff
+# ╠═b17b5d0b-04a9-48d9-9895-d24d802b3984
+# ╠═1886a63f-2b35-4222-a612-6f7e552f2f2d
+# ╠═2a8a410d-7c1c-4dfb-9206-dd9efbed2a9e
+# ╠═81e3b595-8025-40bb-8598-9a2ee9b65ed6
+# ╠═ed6e1952-681a-4303-ba24-5d408fb9bedb
+# ╠═070d7fc2-30d2-4150-9dd4-acc99dbfc3ea
+# ╠═f4107cb8-68c0-49de-a2bb-3a670314837d
+# ╠═580df68f-0165-4be7-84fa-23258f63d741

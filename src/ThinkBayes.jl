@@ -10,7 +10,7 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     expo_pdf, kde_from_sample, kde_from_pmf, items, outer
     
 # from Base:
-export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox, transpose
+export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
 # from Distributions:
 export probs, pdf, cdf, plot, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, std, modes, mode, skewness, kurtosis, entropy, mgf, cf
@@ -27,7 +27,8 @@ import Distributions
 import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf, quantile, insupport,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf, std, UnivariateDistribution
 
-import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/), isapprox
+import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/),
+ isapprox, transpose
 
 using DataFrames
 import DataFrames: stack, unstack
@@ -606,12 +607,14 @@ the probability of the xth row and the yth column.
 
 Thus, a joint that looks like:
 
-    1   2
-3  0.5  0.2
-4  0.1  0.4
+     1   2
+----------    
+4 |  4   8
+5 |  5  10
+6 |  6  12 
 
-will look like:
-([(1,3), (1,4) (2,3), (2,4)], [0.5, 0.1, 0.2, 0.4])
+will return:
+([(1, 4), (1, 5), (1, 6), (2, 4), (2, 5), (2, 6)], [4, 5, 6, 8, 10, 12])
 """
 function stack(j::Joint)
     vals = [(x, y) for x in j.xs for y in j.ys]
@@ -622,7 +625,15 @@ end
 """
 The inverse of stack.
 
-For qs [(1,3), (2,3)]
+For qs: [(1, 4), (1, 5), (1, 6), (2, 4), (2, 5), (2, 6)]
+and ps: [4, 5, 6, 8, 10, 12]
+
+returns: 
+     1   2
+----------    
+4 |  4   8
+5 |  5  10
+6 |  6  12 
 """
 function unstack(qs, vs)
     xs = unique([x for (x,y) in qs])
@@ -634,7 +645,7 @@ end
 transpose(j::Joint) = Joint(transpose(j.M), columns(j), index(j))
 
 function show(io::IO, j::Joint)
-    show(joint_to_df(j))
+    show(io, joint_to_df(j))
 end
 function show(io::IO, ::MIME"text/plain", j::Joint)
     show(io, "text/plain", joint_to_df(j))
@@ -823,7 +834,7 @@ end
 
 
 function show(io::IO, p1::CDF)
-    show(p1.d)
+    show(io, p1.d)
 end
 function show(io::IO, ::MIME"text/plain", p1::CDF)
     show(io, "text/plain", p1.d)
@@ -887,7 +898,7 @@ function quantile(d::CCDF, x)
 end
 
 function show(io::IO, p1::CCDF)
-    show(p1.d)
+    show(io, p1.d)
 end
 
 end
