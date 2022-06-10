@@ -2,12 +2,13 @@ module ThinkBayes
 
 export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     prob_ge, prob_le, prob_gt, prob_lt, prob_eq,
-    binom_pmf, normalize, add_dist, sub_dist, mult_dist, div_dist, make_binomial, loc, df_to_matrix,
+    binom_pmf, normalize, add_dist, sub_dist, mult_dist, div_dist, 
+    make_binomial, loc, df_to_matrix,
     update_binomial, credible_interval, make_pmf, make_df_from_seq_pmf, 
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_weibull_pmf, cdf_from_dist,
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
-    expo_pdf, kde_from_sample, kde_from_pmf, items, outer
+    expo_pdf, kde_from_sample, kde_from_pmf, items, outer, percentile
     
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -899,6 +900,16 @@ end
 
 function show(io::IO, p1::CCDF)
     show(io, p1.d)
+end
+
+function percentile(data::AbstractArray{Number}, p::Number)
+    c = cdf_from_seq(data)
+    quantile(c, p / 100)
+end
+
+function percentile(data::AbstractArray{Number}, p::AbstractArray{Number})
+    c = cdf_from_seq(data)
+    [quantile(c, x / 100) for x in p]
 end
 
 end
