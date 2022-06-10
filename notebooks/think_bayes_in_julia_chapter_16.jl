@@ -211,7 +211,7 @@ md"## Transforming Distributions"
 transform(pmf, func) = pmf_from_seq(func(values(pmf)), probs(pmf))
 
 # ╔═╡ 70d371e3-7057-4de6-a17b-cef499f88903
-marginal_probs = transform(marginal_intercept, expit)
+marginal_probs = transform(marginal_intercept, expit);
 
 # ╔═╡ aeab7803-6921-4c7b-b700-2fba2464852e
 begin
@@ -225,7 +225,7 @@ end
 mean_prob = mean(marginal_probs)
 
 # ╔═╡ 2e09c233-b1bf-45d4-873f-14a263add397
-marginal_lr = transform(marginal_slope, x->exp.(x))
+marginal_lr = transform(marginal_slope, x->exp.(x));
 
 # ╔═╡ 156a584c-8d4b-4463-a842-ecd64422ca27
 begin
@@ -278,17 +278,20 @@ predM = reshape(collect(Iterators.flatten(pred)), length(temps), length(sample))
 # ╔═╡ a8dc6bc2-5fb8-4707-aefc-d5b52e8a6144
 pcts = [percentile(predM[i,:], [5, 50, 90]) for i in 1:length(temps)]
 
+# ╔═╡ 953edfd4-b07e-4843-a999-828c73113b18
+unzip(a) = [getindex.(a, i) for i in 1:length(a[1])]
+
 # ╔═╡ d9380762-71b2-4844-8d33-e511963f075b
-low, median, high = zip(pcts...)
+low, median, high = unzip(pcts)
 
 # ╔═╡ 3a97b9cc-ebbe-4091-b895-4d20cbe36348
-ribbon(low, median, high) = (collect(median) .- collect(low), collect(high) .- collect(median))
+ribbon(low, median, high) = (median .- low, high .- median)
 
 # ╔═╡ 17fce776-3798-496b-a8fc-a156f8ec907f
-plot(temps, collect(median), ribbon=(ribbon(low, median, high)))
+plot(temps, median, ribbon=(ribbon(low, median, high)))
 
 # ╔═╡ 96abb620-636f-45f1-af91-2b50444322e7
-lmh_df = DataFrame(temp=temps, median=collect(median), low=collect(low), high=collect(high) )
+lmh_df = DataFrame(temp=temps, median=median, low=low, high=high )
 
 # ╔═╡ 1807779a-269d-4942-8c5e-2fc14fae43c2
 lmh_df[findfirst(==(80), lmh_df.temp), :]
@@ -368,6 +371,7 @@ lmh_df[findfirst(==(31), lmh_df.temp), :]
 # ╠═2fcaff07-1243-4a02-a25c-481c459e890f
 # ╠═cbc0e731-ed50-40c2-8239-6920835a5ceb
 # ╠═a8dc6bc2-5fb8-4707-aefc-d5b52e8a6144
+# ╠═953edfd4-b07e-4843-a999-828c73113b18
 # ╠═d9380762-71b2-4844-8d33-e511963f075b
 # ╠═3a97b9cc-ebbe-4091-b895-4d20cbe36348
 # ╠═17fce776-3798-496b-a8fc-a156f8ec907f
