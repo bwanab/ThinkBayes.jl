@@ -902,14 +902,41 @@ function show(io::IO, p1::CCDF)
     show(io, p1.d)
 end
 
-function percentile(data::AbstractArray{Number}, p::Number)
+"""
+does the same thing as zip(a...), but faster.
+"""
+unzip(a) = [getindex.(a, i) for i in 1:length(a[1])]
+
+"""
+compute the percentile (p) of a one dimensional array of numbers.
+"""
+function percentile(data::AbstractArray, p::Number)
     c = cdf_from_seq(data)
     quantile(c, p / 100)
 end
 
-function percentile(data::AbstractArray{Number}, p::AbstractArray{Number})
+"""
+compute the percentiles for an vector of percentiles (p) of a one dimensional
+    array of numbers (data).
+"""
+function percentile(data::AbstractArray, p::AbstractVector)
     c = cdf_from_seq(data)
     [quantile(c, x / 100) for x in p]
 end
+
+"""
+computes percentiles on a matrix in the given dimension.
+
+returns a length(p) vector of vectors each of which is the percentiles. E.G.
+if your data is a 10x10 matrix and p has 3 values, it will return 3 vectors
+    of size 10 (since it's square the dim is the same size either way.)
+
+Note that this only works for 2D matrices.
+"""
+function percentile(data::Matrix, p::AbstractVector; dims=1)
+    d = dims == 1 ? data : permutedims(data, (2,1))
+    unzip([percentile(d[i,:], p) for i in 1:size(d)[1]])
+end
+
 
 end

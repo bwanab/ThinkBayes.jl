@@ -263,23 +263,12 @@ begin
 	scatter!(data.Temperature, data.Damage, label="data")
 end
 
-# ╔═╡ 2fcaff07-1243-4a02-a25c-481c459e890f
-function percentile(data, p)
-	c = cdf_from_seq(data)
-	quantile(c, p / 100)
-end
-
 # ╔═╡ cbc0e731-ed50-40c2-8239-6920835a5ceb
-predM = reshape(collect(Iterators.flatten(pred)), length(temps), length(sample));
-
-# ╔═╡ a8dc6bc2-5fb8-4707-aefc-d5b52e8a6144
-pcts = [percentile(predM[i,:], [5, 50, 90]) for i in 1:length(temps)]
-
-# ╔═╡ 953edfd4-b07e-4843-a999-828c73113b18
-unzip(a) = [getindex.(a, i) for i in 1:length(a[1])]
+predM = permutedims(reduce(vcat, transpose.(pred)), (2,1));
 
 # ╔═╡ d9380762-71b2-4844-8d33-e511963f075b
-low, median, high = unzip(pcts)
+#low, median, high = unzip(pcts)
+low, median, high = percentile(predM, [5, 50, 90])
 
 # ╔═╡ 3a97b9cc-ebbe-4091-b895-4d20cbe36348
 ribbon(low, median, high) = (median .- low, high .- median)
@@ -442,16 +431,10 @@ xs3_e2 = adhd.x
 ps2_e2 = [expit(inter .+ slope .* xs3_e2) for (slope, inter) in sample_e2]
 
 # ╔═╡ 5b1c2a3c-db89-4787-895a-247480d525f3
-ps2_reshape = reshape(collect(Iterators.flatten(ps2_e2)), length(xs3_e2), length(sample_e2));
-
-# ╔═╡ 6d99fd27-2ddb-4a13-a01a-7fe37330a839
-mean(ps2_reshape)
-
-# ╔═╡ 6f1e8c60-efc7-44ae-bd25-fa66a41c9bad
-diags = [percentile(ps2_reshape[i,:], [2.5, 50, 97.5]) for i in 1:length(xs3_e2)]
+ps2_reshape = permutedims(reduce(vcat, transpose.(ps2_e2)), (2,1));
 
 # ╔═╡ 8ebdeda4-a5a1-441e-a871-e2cd65dc7fd5
-low_e2, median_e2, high_e2 = unzip(diags);
+low_e2, median_e2, high_e2 = percentile(ps2_reshape, [2.5, 50, 97.5])
 
 # ╔═╡ cf491e49-ee32-4be2-8945-2ca860ce765e
 median_e2
@@ -461,9 +444,6 @@ begin
 	plot(xs3_e2, median_e2*10000, ribbon=(ribbon(low_e2*10000, median_e2*10000, high_e2*10000)))
 	scatter!(adhd.x, adhd.rate)
 end
-
-# ╔═╡ 551855e4-1585-49ad-9ea0-a1e8b0e94941
-v = transpose.(ps2_e2)
 
 # ╔═╡ Cell order:
 # ╠═20a227a8-dece-403f-af26-92225880e2b8
@@ -530,10 +510,7 @@ v = transpose.(ps2_e2)
 # ╠═dae8f67d-4050-493e-aa96-19f4d6cde5c5
 # ╠═4fa0b559-c088-466a-870f-2f3af6905483
 # ╠═0aeb9f4b-c8d9-4ad3-9e09-680ccfd631cb
-# ╠═2fcaff07-1243-4a02-a25c-481c459e890f
 # ╠═cbc0e731-ed50-40c2-8239-6920835a5ceb
-# ╠═a8dc6bc2-5fb8-4707-aefc-d5b52e8a6144
-# ╠═953edfd4-b07e-4843-a999-828c73113b18
 # ╠═d9380762-71b2-4844-8d33-e511963f075b
 # ╠═3a97b9cc-ebbe-4091-b895-4d20cbe36348
 # ╠═17fce776-3798-496b-a8fc-a156f8ec907f
@@ -578,9 +555,6 @@ v = transpose.(ps2_e2)
 # ╠═4217d922-a320-4452-8811-9f03859be4ea
 # ╠═16a5e8c2-a1eb-43d3-a1db-b1a969fe91b3
 # ╠═5b1c2a3c-db89-4787-895a-247480d525f3
-# ╠═6d99fd27-2ddb-4a13-a01a-7fe37330a839
-# ╠═6f1e8c60-efc7-44ae-bd25-fa66a41c9bad
 # ╠═8ebdeda4-a5a1-441e-a871-e2cd65dc7fd5
 # ╠═cf491e49-ee32-4be2-8945-2ca860ce765e
 # ╠═4a71475b-f686-49a0-ac85-fe78af3b3f53
-# ╠═551855e4-1585-49ad-9ea0-a1e8b0e94941
