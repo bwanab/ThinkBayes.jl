@@ -55,7 +55,7 @@ begin
 end;
 
 # ╔═╡ e30170b5-302f-434d-a800-0c49039238e1
-data
+first(data, 5)
 
 # ╔═╡ cbe9aa3b-8612-4d64-87e4-35e8497c0dc4
 nrow(data), sum(data.Damage)
@@ -75,9 +75,6 @@ end
 
 # ╔═╡ 580a7076-f969-45d2-b0fc-399885cf7353
 data.y = data.Damage
-
-# ╔═╡ 2f3bc4f5-f0cf-4181-a8df-622f8290b75e
-data
 
 # ╔═╡ fa8eaff9-6645-4dcc-bacd-52d7830257b0
 ols = glm(@formula(y ~ x), data, Binomial(), LogitLink())
@@ -163,9 +160,9 @@ prod(likes)
 
 # ╔═╡ ee2c849e-30b7-4be8-a4f1-cf7ca691d482
 begin
-	function compute_likelihood(slope, intercept, ks, ns, xs)
+	function compute_likelihood(slope, intercept, ks, ns, xs; func=pdf)
 		ps = expit(intercept .+ slope .* xs)
-		likes = [pdf(Binomial(n, p), k) for (n, p, k) in zip(ns, ps, ks)]
+		likes = [func(Binomial(n, p), k) for (n, p, k) in zip(ns, ps, ks)]
 		prod(likes)
 	end
 	likelihood = [compute_likelihood(slope, intercept, ks, ns, xs2) for (intercept, slope) in joint_index]
@@ -273,7 +270,7 @@ function percentile(data, p)
 end
 
 # ╔═╡ cbc0e731-ed50-40c2-8239-6920835a5ceb
-predM = reshape(collect(Iterators.flatten(pred)), length(temps), length(sample))
+predM = reshape(collect(Iterators.flatten(pred)), length(temps), length(sample));
 
 # ╔═╡ a8dc6bc2-5fb8-4707-aefc-d5b52e8a6144
 pcts = [percentile(predM[i,:], [5, 50, 90]) for i in 1:length(temps)]
@@ -291,16 +288,182 @@ ribbon(low, median, high) = (median .- low, high .- median)
 plot(temps, median, ribbon=(ribbon(low, median, high)))
 
 # ╔═╡ 96abb620-636f-45f1-af91-2b50444322e7
-lmh_df = DataFrame(temp=temps, median=median, low=low, high=high )
+lmh_df = DataFrame(Index=temps, median=median, low=low, high=high );
 
-# ╔═╡ 1807779a-269d-4942-8c5e-2fc14fae43c2
-lmh_df[findfirst(==(80), lmh_df.temp), :]
+# ╔═╡ 3232a8e8-3ef5-4ccb-96d2-084688b83410
+loc(lmh_df, 80)
 
-# ╔═╡ 257e6a96-9887-4e5f-990c-276666fc1a89
-lmh_df[findfirst(==(60), lmh_df.temp), :]
+# ╔═╡ 3565c919-1ec8-474a-a428-1125a8005dd4
+loc(lmh_df, 60)
 
-# ╔═╡ ec368527-f463-4315-9fc3-cabba30f232f
-lmh_df[findfirst(==(31), lmh_df.temp), :]
+# ╔═╡ 1bf989b9-6354-4a51-bc65-77c3e105078d
+loc(lmh_df, 31)
+
+# ╔═╡ 59d18bbf-6b5d-4657-b93f-1f06b712ae99
+md"""
+## Exercises
+
+### _exercise 16.1_
+"""
+
+# ╔═╡ 14c13375-7304-422f-b8e4-4692598e0b70
+prior_log_odds = log(4)
+
+# ╔═╡ 6ee92193-7121-47d9-98c7-8af5e6552a39
+begin
+	lr1 = log(7/5)
+	lr2 = log(3/5)
+	lr3 = log(9/5)
+end
+
+# ╔═╡ 9b139eff-6593-4c2f-b629-f15fba0d769f
+posterior_log_odds = prior_log_odds + lr1 + lr2 + lr3
+
+# ╔═╡ 4fd1a491-4f4e-464d-9902-f2804934ee4f
+md"### _exercise 16.2_"
+
+# ╔═╡ faa0f18a-2bc9-4606-9a31-ea713e81aa1e
+begin
+	n1 = [32690, 31238, 34405, 34565, 34977, 34415, 
+	                   36577, 36319, 35353, 34405, 31285, 31617]
+	k1 = [265, 280, 307, 312, 317, 287, 
+	                      320, 309, 225, 240, 232, 243]
+end
+
+# ╔═╡ b12c3cf0-73bb-49db-9e59-212efc1b7582
+roll(l, n) = vcat(collect(Iterators.drop(l, n)), collect(Iterators.take(l,n)))
+
+# ╔═╡ 1af76000-52c3-4a9e-a39a-eba43e522d1d
+begin
+	x = 0:11
+	n = roll(n1, 8)
+	k = roll(k1, 8)
+end
+
+# ╔═╡ 653b2e59-93a8-43f4-a573-0f31523aaa07
+
+
+# ╔═╡ 247f8221-08e0-4173-bed8-06f1ac727899
+adhd = DataFrame(x=x, k=k, n=n, rate=k ./ n .* 10000)
+
+# ╔═╡ 13ea4cb9-6001-4646-9f0d-7e01b3a9afa3
+begin
+	scatter(adhd.x, adhd.rate)
+	vline!([5.5], color=:gray, alpha=0.2)
+	annotate!([(6, 64, text("Younger than average",10, :left))
+				(5, 64, text("Older than average", 10, :right))])
+	plot!(xaxis=("Bright date, months after cutoff"), yaxis=("Diagnosis rate per 10,000"))
+end
+
+# ╔═╡ 442eab20-49b1-4b7a-95e9-f6f6f6e86d88
+prior_inter_e2 = pmf_from_seq(range(-5.2, -4.6, 51));
+
+# ╔═╡ 6148e327-880c-43cc-9a1f-faacfc94940e
+prior_slope_e2 = pmf_from_seq(range(0.0, 0.08, 51));
+
+# ╔═╡ 2fc61207-0518-489b-a7c3-56e3fae8a404
+prior_joint_e2 = make_joint(*, prior_slope_e2, prior_inter_e2);
+
+# ╔═╡ 78369e77-9cef-4656-9a96-c70a06c67f9f
+prior_joint_index, prior_joint_vals = stack(prior_joint_e2)
+
+# ╔═╡ 078e0547-efbe-4a12-aae1-83b456b22197
+prior_joint_pmf_e2 = pmf_from_seq(prior_joint_index, prior_joint_vals);
+
+# ╔═╡ e0c5c33f-ccf3-492b-ac09-d3c900702450
+begin
+	ns1_e2 = adhd[1:9, :n]
+	ks1_e2 = adhd[1:9, :k]
+	xs1_e2 = adhd[1:9, :x]
+end
+
+# ╔═╡ 2df993c1-2e0b-4e98-af9e-14ebb086e3b7
+likelihood1_e2 = [compute_likelihood(slope, intercept, ks1_e2, ns1_e2, xs1_e2) for (slope, intercept) in prior_joint_index]
+
+# ╔═╡ 591c522f-19ee-4c42-b956-e3eb4c4b4f6e
+begin
+	ns2_e2 = adhd[10:end, :n]
+	ks2_e2 = adhd[10:end, :k]
+	xs2_e2 = adhd[10:end, :x]
+end
+
+# ╔═╡ 227d38a2-0423-4db3-8f44-aa5c918299b3
+adhd[1:9, :]
+
+# ╔═╡ 0fab40a0-b069-4c39-a71e-64f8251e9bbe
+adhd[10:end, :]
+
+# ╔═╡ 1e6f9561-c972-4b82-bc6b-2628b6db5d40
+likelihood2_e2 = [compute_likelihood(slope, intercept, ks2_e2, ns2_e2, xs2_e2, func=ccdf) for (slope, intercept) in prior_joint_index]
+
+# ╔═╡ 3afdac43-2dd4-4fa8-b548-3b8513b5f371
+sum(likelihood1_e2)
+
+# ╔═╡ ae4af115-38d8-46cf-a3b4-54d995ce3a43
+sum(likelihood2_e2)
+
+# ╔═╡ cef2e457-3118-4132-ad14-099f7d0f661e
+posterior_joint_pmf1_e2 = prior_joint_pmf_e2 * likelihood1_e2;
+
+# ╔═╡ 83fc874d-5d14-46f0-9056-96c8f89232e9
+max_prob(posterior_joint_pmf1_e2)
+
+# ╔═╡ 5bec7761-2fcd-4563-8231-6ae609d92a3e
+posterior_joint_pmf2_e2 = prior_joint_pmf_e2 * (likelihood1_e2 .* likelihood2_e2);
+
+# ╔═╡ 8ba40a96-3b3f-4bd2-bae3-88b46d169d83
+max_prob(posterior_joint_pmf2_e2)
+
+# ╔═╡ 02fb79f6-9d59-48ec-bdb0-2a7c28a81cb0
+joint_posterior_e2 = transpose(unstack(values(posterior_joint_pmf2_e2), probs(posterior_joint_pmf2_e2)));
+
+# ╔═╡ 6aef8ef7-8bf4-4b4b-b205-586282824bfd
+contour(joint_posterior_e2)
+
+# ╔═╡ fa7a2957-2473-426b-9a4e-898974d6ed99
+begin
+	marginal_inter_e2 = marginal(joint_posterior_e2, 1)
+	marginal_slope_e2 = marginal(joint_posterior_e2, 2)
+end;
+
+# ╔═╡ 434b10b8-f514-4912-bae3-1259181128a7
+plot(marginal_inter_e2)
+
+# ╔═╡ aca7c105-7f78-4547-be13-e0717bedc62d
+plot(marginal_slope_e2)
+
+# ╔═╡ 2285e1ab-fa91-4229-b4cd-6bb072662c84
+sample_e2 = rand(posterior_joint_pmf2_e2, 101)
+
+# ╔═╡ 4217d922-a320-4452-8811-9f03859be4ea
+xs3_e2 = adhd.x
+
+# ╔═╡ 16a5e8c2-a1eb-43d3-a1db-b1a969fe91b3
+ps2_e2 = [expit(inter .+ slope .* xs3_e2) for (slope, inter) in sample_e2]
+
+# ╔═╡ 5b1c2a3c-db89-4787-895a-247480d525f3
+ps2_reshape = reshape(collect(Iterators.flatten(ps2_e2)), length(xs3_e2), length(sample_e2));
+
+# ╔═╡ 6d99fd27-2ddb-4a13-a01a-7fe37330a839
+mean(ps2_reshape)
+
+# ╔═╡ 6f1e8c60-efc7-44ae-bd25-fa66a41c9bad
+diags = [percentile(ps2_reshape[i,:], [2.5, 50, 97.5]) for i in 1:length(xs3_e2)]
+
+# ╔═╡ 8ebdeda4-a5a1-441e-a871-e2cd65dc7fd5
+low_e2, median_e2, high_e2 = unzip(diags);
+
+# ╔═╡ cf491e49-ee32-4be2-8945-2ca860ce765e
+median_e2
+
+# ╔═╡ 4a71475b-f686-49a0-ac85-fe78af3b3f53
+begin
+	plot(xs3_e2, median_e2*10000, ribbon=(ribbon(low_e2*10000, median_e2*10000, high_e2*10000)))
+	scatter!(adhd.x, adhd.rate)
+end
+
+# ╔═╡ 551855e4-1585-49ad-9ea0-a1e8b0e94941
+v = transpose.(ps2_e2)
 
 # ╔═╡ Cell order:
 # ╠═20a227a8-dece-403f-af26-92225880e2b8
@@ -319,7 +482,6 @@ lmh_df[findfirst(==(31), lmh_df.temp), :]
 # ╠═bb508993-3f34-4757-9c6b-113a1e45ed6d
 # ╠═4a96cc91-0bf3-42a2-a482-e71e242399be
 # ╠═580a7076-f969-45d2-b0fc-399885cf7353
-# ╠═2f3bc4f5-f0cf-4181-a8df-622f8290b75e
 # ╠═fa8eaff9-6645-4dcc-bacd-52d7830257b0
 # ╠═269d4db4-5625-46c7-82ac-f750777b660d
 # ╠═550a2b10-7334-419e-aff0-ce363733b514
@@ -376,6 +538,49 @@ lmh_df[findfirst(==(31), lmh_df.temp), :]
 # ╠═3a97b9cc-ebbe-4091-b895-4d20cbe36348
 # ╠═17fce776-3798-496b-a8fc-a156f8ec907f
 # ╠═96abb620-636f-45f1-af91-2b50444322e7
-# ╠═1807779a-269d-4942-8c5e-2fc14fae43c2
-# ╠═257e6a96-9887-4e5f-990c-276666fc1a89
-# ╠═ec368527-f463-4315-9fc3-cabba30f232f
+# ╠═3232a8e8-3ef5-4ccb-96d2-084688b83410
+# ╠═3565c919-1ec8-474a-a428-1125a8005dd4
+# ╠═1bf989b9-6354-4a51-bc65-77c3e105078d
+# ╟─59d18bbf-6b5d-4657-b93f-1f06b712ae99
+# ╠═14c13375-7304-422f-b8e4-4692598e0b70
+# ╠═6ee92193-7121-47d9-98c7-8af5e6552a39
+# ╠═9b139eff-6593-4c2f-b629-f15fba0d769f
+# ╟─4fd1a491-4f4e-464d-9902-f2804934ee4f
+# ╠═faa0f18a-2bc9-4606-9a31-ea713e81aa1e
+# ╠═b12c3cf0-73bb-49db-9e59-212efc1b7582
+# ╠═1af76000-52c3-4a9e-a39a-eba43e522d1d
+# ╠═653b2e59-93a8-43f4-a573-0f31523aaa07
+# ╠═247f8221-08e0-4173-bed8-06f1ac727899
+# ╠═13ea4cb9-6001-4646-9f0d-7e01b3a9afa3
+# ╠═442eab20-49b1-4b7a-95e9-f6f6f6e86d88
+# ╠═6148e327-880c-43cc-9a1f-faacfc94940e
+# ╠═2fc61207-0518-489b-a7c3-56e3fae8a404
+# ╠═78369e77-9cef-4656-9a96-c70a06c67f9f
+# ╠═078e0547-efbe-4a12-aae1-83b456b22197
+# ╠═e0c5c33f-ccf3-492b-ac09-d3c900702450
+# ╠═2df993c1-2e0b-4e98-af9e-14ebb086e3b7
+# ╠═591c522f-19ee-4c42-b956-e3eb4c4b4f6e
+# ╠═227d38a2-0423-4db3-8f44-aa5c918299b3
+# ╠═0fab40a0-b069-4c39-a71e-64f8251e9bbe
+# ╠═1e6f9561-c972-4b82-bc6b-2628b6db5d40
+# ╠═3afdac43-2dd4-4fa8-b548-3b8513b5f371
+# ╠═ae4af115-38d8-46cf-a3b4-54d995ce3a43
+# ╠═cef2e457-3118-4132-ad14-099f7d0f661e
+# ╠═83fc874d-5d14-46f0-9056-96c8f89232e9
+# ╠═5bec7761-2fcd-4563-8231-6ae609d92a3e
+# ╠═8ba40a96-3b3f-4bd2-bae3-88b46d169d83
+# ╠═02fb79f6-9d59-48ec-bdb0-2a7c28a81cb0
+# ╠═6aef8ef7-8bf4-4b4b-b205-586282824bfd
+# ╠═fa7a2957-2473-426b-9a4e-898974d6ed99
+# ╠═434b10b8-f514-4912-bae3-1259181128a7
+# ╠═aca7c105-7f78-4547-be13-e0717bedc62d
+# ╠═2285e1ab-fa91-4229-b4cd-6bb072662c84
+# ╠═4217d922-a320-4452-8811-9f03859be4ea
+# ╠═16a5e8c2-a1eb-43d3-a1db-b1a969fe91b3
+# ╠═5b1c2a3c-db89-4787-895a-247480d525f3
+# ╠═6d99fd27-2ddb-4a13-a01a-7fe37330a839
+# ╠═6f1e8c60-efc7-44ae-bd25-fa66a41c9bad
+# ╠═8ebdeda4-a5a1-441e-a871-e2cd65dc7fd5
+# ╠═cf491e49-ee32-4be2-8945-2ca860ce765e
+# ╠═4a71475b-f686-49a0-ac85-fe78af3b3f53
+# ╠═551855e4-1585-49ad-9ea0-a1e8b0e94941
