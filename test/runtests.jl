@@ -116,5 +116,16 @@ using Test
     qs,ps = stack(j)
     j2 = unstack(qs, ps)
     @test j2 == j
+    pmf1 = pmf_from_seq(1:3)
+    pmf2 = pmf_from_seq(4:6)
+    pmf3 = pmf_from_seq(7:9)
+    vs1, probs1 = stack(make_joint(*, pmf2, pmf3))
+    joint2 = pmf_from_seq(vs1, probs1)
+    vs2, probs2 = stack(make_joint(*, pmf1, joint2))
+    joint3 = pmf_from_seq(vs2, probs2)
+    m1, m2, m3 = marginals3(joint3)
+    @test m1 == pmf1
+    @test m2 == pmf2
+    @test m3 == pmf3
 end
 end
