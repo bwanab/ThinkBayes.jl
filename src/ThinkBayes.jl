@@ -546,7 +546,7 @@ Joint distributions.
 """
 
 export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals, collect_func, marginal, stack, unstack, index, columns
+    collect_vals, collect_func, marginal, marginals3, stack, unstack, index, columns
 
 struct Joint
     M::Matrix
@@ -586,6 +586,31 @@ end
 function marginal(joint::Joint, dim)
 	sums = sum(joint.M, dims=dim)
 	pmf_from_seq(dim==1 ? joint.xs : joint.ys, vec(sums))
+end
+
+"""
+This is specifically to get the marginals from a 3 variable model that has produce
+a posterior where the values are (n1, (n2, n3)). This kind of posterior arises from
+this sequence:
+
+vs1, probs1 = stack(make_joint(*, pmf2, pmf1))
+joint2 = pmf_from_seq(vs1, probs1)
+vs2, probs2 = stack(make_joint(*, pmf3, joint2))
+joint3 = pmf_from_seq(vs2, probs2)
+
+joint3 will have values where each is the (n1, (n2, n3)) shape.
+
+This function disentangles joint3 to result in marginals for n1, n2, n3 respectively.
+"""
+function marginals3(pmf::Pmf)
+    joint1 = unstack(values(pmf), probs(pmf))
+    marginal1 = marginal(joint1, 1)
+    indices = columns(joint1)
+    vals = sum(joint1.M, dims=2)
+    joint2 = unstack(indices, vals)
+    marginal2 = marginal(joint2, 1)
+    marginal3 = marginal(joint2, 2)
+    (marginal1, marginal2, marginal3)
 end
 
 function mult_likelihood(j::Joint, likelihood)
