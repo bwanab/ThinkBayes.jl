@@ -8,7 +8,8 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     make_mixture, make_poisson_pmf, update_poisson, make_exponential_pmf, 
     make_weibull_pmf, cdf_from_dist,
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
-    expo_pdf, kde_from_sample, kde_from_pmf, items, outer, percentile
+    expo_pdf, kde_from_sample, kde_from_pmf, items, outer, percentile,
+    unzip
     
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -222,6 +223,9 @@ function min_prob(d::Pmf)
     d.values[index]
 end
 
+function isapprox(p1::Pmf, p2::Pmf)
+    (values(p1) ≈ values(p2)) && (probs(p1) ≈ probs(p2))
+end
 
 function pmf_from_seq(seq; counts=nothing)::Pmf
     if counts!==nothing
@@ -546,12 +550,15 @@ Joint distributions.
 """
 
 export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
-    collect_vals, collect_func, marginal, marginals3, stack, unstack, index, columns
+    collect_vals, collect_func, marginal, marginals3, stack, unstack, index, columns, xs, ys, zs
 
 struct Joint
-    M::Matrix
-    xs::Vector 
-    ys::Vector
+    M::Array
+    dims::Vector{Vector}
+end
+
+function Joint(M::Array, xs::AbstractVector, ys::AbstractVector)
+    Joint(M, [xs, ys])
 end
 
 """
@@ -559,33 +566,48 @@ Exactly like outer(f, x, y) but works with pmfs instead of vectors.
 Returns a Joint structure that contains the results as a Matrix
 where along with the xs and ys.
 """
-function make_joint(f, x_pmf, y_pmf)
+function make_joint(f, x_pmf::Pmf, y_pmf::Pmf)
     x_p = probs(x_pmf)
 	y_p = probs(y_pmf)
-	v = outer(f, x_p, y_p)
+    v = outer(f, x_p, y_p)
 	Joint(v, values(x_pmf), values(y_pmf))
 end
 
+make_joint(x_pmf::Pmf, y_pmf::Pmf) = make_joint(*, x_pmf, y_pmf)
+
+function make_joint(j::Joint, z_pmf::Pmf)
+    d1, d2 = size(j.M)
+    zs = values(z_pmf)
+    d3 = length(zs)
+    M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d1,d2,d3), (1,2,3))
+    xs, ys = j.dims
+    Joint(M, [xs, ys, zs])
+end
+
 function column(j::Joint, x_val)
-    index = findfirst(round.(j.xs, digits=3) .≈ x_val)
+    index = findfirst(round.(xs(j), digits=3) .≈ x_val)
     j.M[:,index]
 end
 
 function row(j::Joint, y_val)
-    index = findfirst(round.(j.ys, digits=3) .≈ y_val)
+    index = findfirst(round.(ys(j), digits=3) .≈ y_val)
     j.M[index,:]
 end
 
-columns(j::Joint) = j.ys
-index(j::Joint) = j.xs
+columns(j::Joint) = j.dims[1]
+xs(j::Joint) = j.dims[1]
+index(j::Joint) = j.dims[2]    # ys
+ys(j::Joint) = j.dims[2]
+zvalues(j::Joint) = j.dims[3]  # zs
+zs(j::Joint) = j.dims[3]
 
 function joint_to_df(j::Joint)
-    DataFrame(hcat(j.ys, j.M), vcat(["Index"], string.(round.(j.xs, digits=3))))
+    DataFrame(hcat(ys(j), j.M), vcat(["Index"], string.(round.(xs(j), digits=3))))
 end
 
 function marginal(joint::Joint, dim)
 	sums = sum(joint.M, dims=dim)
-	pmf_from_seq(dim==1 ? joint.xs : joint.ys, vec(sums))
+	pmf_from_seq(dim==1 ? xs(joint) : ys(joint), vec(sums))
 end
 
 """
@@ -614,12 +636,12 @@ function marginals3(pmf::Pmf)
 end
 
 function mult_likelihood(j::Joint, likelihood)
-    Joint(normalize(j.M .* likelihood), j.xs, j.ys)
+    Joint(normalize(j.M .* likelihood), xs(j), ys(j))
 end
 
 (*)(d::Joint, likelihood) = mult_likelihood(d, likelihood)
 
-(+)(d1::Joint, d2::Joint) = Joint(d1.M .+ d2.M, d1.xs, d2.xs)
+(+)(d1::Joint, d2::Joint) = Joint(d1.M .+ d2.M, xs(d1), ys(d1))
 
 """
 stack(j::Joint)
@@ -643,7 +665,7 @@ will return:
 ([(1, 4), (1, 5), (1, 6), (2, 4), (2, 5), (2, 6)], [4, 5, 6, 8, 10, 12])
 """
 function stack(j::Joint)
-    vals = [(x, y) for x in j.xs for y in j.ys]
+    vals = [(x, y) for x in xs(j) for y in ys(j)]
     probs = vec(j.M)
     (vals, probs)
 end
@@ -703,8 +725,8 @@ function visualize_joint!(joint::Joint; c = :greys, xaxis="XS", yaxis="YS", norm
 end
 function visualize_joint(joint::Joint; c = :greys, xaxis="XS", yaxis="YS", normalize=false, secondary=false, alpha=1.0, is_contour=false)
     M = joint.M
-    ys = joint.ys
-    xs = joint.xs
+    ys = ys(joint)
+    xs = xs(joint)
     visualize_joint(M, xs=xs, ys=ys, c=c, xaxis=xaxis, yaxis=yaxis, normalize=normalize, secondary=secondary, alpha=alpha, is_contour=is_contour)
 end
 
@@ -734,15 +756,15 @@ function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys
 end
 
 function contour(j::Joint; kwargs...)
-    contour(j.xs, j.ys, j.M; kwargs...)
+    contour(xs(j), ys(j), j.M; kwargs...)
 end
 
 function contour!(j::Joint; kwargs...)
-    contour!(j.xs, j.ys, j.M; kwargs...)
+    contour!(xs(j), ys(j), j.M; kwargs...)
 end
 
 function surface(j::Joint; kwargs...)
-    surface(j.xs, j.ys, j.M; kwargs...)
+    surface(xs(j), ys(j), j.M; kwargs...)
 end
 
 abstract type AbstractDistFunction end
