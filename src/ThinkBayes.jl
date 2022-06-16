@@ -579,9 +579,10 @@ function make_joint(j::Joint, z_pmf::Pmf)
     d1, d2 = size(j.M)
     zs = values(z_pmf)
     d3 = length(zs)
-    M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d1,d2,d3), (1,2,3))
+    #M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d1,d2,d3), (1,2,3))
+    M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d3,d1,d2), (3,2,1))
     xs, ys = j.dims
-    Joint(M, [xs, ys, zs])
+    Joint(M, [ys, xs, zs])
 end
 
 function column(j::Joint, x_val)
@@ -606,8 +607,24 @@ function joint_to_df(j::Joint)
 end
 
 function marginal(joint::Joint, dim)
-	sums = sum(joint.M, dims=dim)
-	pmf_from_seq(dim==1 ? xs(joint) : ys(joint), vec(sums))
+    if length(size(joint.M)) == 2
+    	sums = sum(joint.M, dims=dim)
+    	pmf_from_seq(dim==1 ? xs(joint) : ys(joint), vec(sums))
+    else
+        order = [3, 1, 2]
+        use_dim = order[dim]
+        d = size(joint.M)[use_dim]
+        if use_dim == 1
+            sums = [sum(view(joint.M, x,:,:)) for x in 1:d]
+            pmf_from_seq(ys(joint), sums)
+        elseif use_dim == 2
+            sums = [sum(view(joint.M, :,x,:)) for x in 1:d]
+            pmf_from_seq(xs(joint), sums)
+        else
+            sums = [sum(view(joint.M, :,:,x)) for x in 1:d]
+            pmf_from_seq(zs(joint), sums)
+        end
+    end
 end
 
 """
@@ -627,7 +644,7 @@ This function disentangles joint3 to result in marginals for n1, n2, n3 respecti
 function marginals3(pmf::Pmf)
     joint1 = unstack(values(pmf), probs(pmf))
     marginal1 = marginal(joint1, 1)
-    indices = columns(joint1)
+    indices = index(joint1)
     vals = sum(joint1.M, dims=2)
     joint2 = unstack(indices, vals)
     marginal2 = marginal(joint2, 1)

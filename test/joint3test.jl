@@ -49,5 +49,7 @@ M4 = permutedims(reshape(outer(*, reshape(joint2.M, prod(size(joint2.M))), probs
 @test [sum(view(M4, :,:,x)) for x in 1:d3] ≈ probs(m3)
 @test [sum(view(M4, x,:,:)) for x in 1:d1] ≈ probs(m1)
 @test [sum(view(M4, :,x,:)) for x in 1:d2] ≈ probs(m2)
+
+joint3_new = make_joint(joint2, pmf1)
 end
 end

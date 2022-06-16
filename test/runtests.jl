@@ -98,7 +98,7 @@ using Test
     @test round(pdf(m1, 1.0), digits=4) ≈ 0.0484
     m2 = marginal(j, 2)
     @test round(pdf(m2, 1.0), digits=4) ≈ 0.0055
-    @test round(sum(row(j + j, 1.0)), digits=4) ≈ 0.0712
+    @test round(sum(row(j + j, 1.0)), digits=4) ≈ 0.0109
     @test round(sum(column(j + j, 1.0)), digits=4) ≈ 0.0968
     likelihood = reshape(range(0, 10, length=51*51), 51, 51)
     @test round(sum(row(j * likelihood, 1.0)), digits=4) ≈ 0.0054
