@@ -30,7 +30,7 @@ import Distributions:  probs, pdf, cdf, maximum, minimum, rand, sampler, logpdf,
     mean, var, modes, mode, skewness, kurtosis, entropy, mgf, cf, std, UnivariateDistribution
 
 import Base: copy, getindex, setindex!, values, show, display, (+), (*), (==), (^), (-), (/),
- isapprox, transpose
+ isapprox, transpose, size
 
 using DataFrames
 import DataFrames: stack, unstack
@@ -552,6 +552,7 @@ Joint distributions.
 export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
     collect_vals, collect_func, marginal, marginals3, stack, unstack, index, columns, xs, ys, zs
 
+j3d_order = [3,1,2]
 struct Joint
     M::Array
     dims::Vector{Vector}
@@ -709,14 +710,46 @@ end
 
 transpose(j::Joint) = Joint(transpose(j.M), columns(j), index(j))
 
-function show(io::IO, j::Joint)
-    show(io, joint_to_df(j))
+size(j::Joint) = size(j.M)
+ndims(j::Joint) = length(size(j))
+
+function showJ3d(j3::Joint)
+    d4, d5, d3 = size(j3)
+    M1 = reshape([sum(view(j3.M, :,x,y)) for x in 1:d5 for y in 1:d3], d3, d5)
+    M2 = reshape([sum(view(j3.M, x,:,y)) for x in 1:d4 for y in 1:d3], d3, d4) 
+    M3 = reshape([sum(view(j3.M, x,y,:)) for x in 1:d4 for y in 1:d5], d5, d4)
+    [joint_to_df(Joint(M1, [xs(j3), zs(j3)])), 
+     joint_to_df(Joint(M2, [ys(j3), zs(j3)])), 
+     joint_to_df(Joint(M3, [ys(j3), xs(j3)]))]
 end
+
+display(j::Joint) = show(stdout, j)
+
+function show(io::IO, j::Joint)
+    if ndims(j) == 2
+        show(io, joint_to_df(j))
+    else
+        show(io, showJ3d(j))
+        #for j in showJ3d(j)
+        #    show(io, j)
+        #end
+    end
+end
+
 function show(io::IO, ::MIME"text/plain", j::Joint)
-    show(io, "text/plain", joint_to_df(j))
+    if ndims(j) == 2
+        show(io, "text/plain", joint_to_df(j))
+    else
+        show(io,"test/plain", "big joint")
+        #show(io,"test/plain", showJ3d(j))
+    end
 end
 function show(io::IO, ::MIME"text/html", j::Joint)
-    show(io, "text/html", joint_to_df(j))
+    if ndims(j) == 2
+        show(io, "text/html", joint_to_df(j))
+    else
+        show(io, "text/html", "big joint")
+    end
 end
 
 (==)(j1::Joint, j2::Joint) = (index(j1) == index(j2)) && (columns(j1) == columns(j2)) && (j1.M == j2.M)
