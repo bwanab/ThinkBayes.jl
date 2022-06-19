@@ -4,8 +4,8 @@ using ThinkBayes
 using Test
 
 @testset "Test Joint3" begin
-#d1, d2, d3 = 20, 30, 50
-d1, d2, d3 = 3, 4, 5
+d1, d2, d3 = 20, 30, 50
+#d1, d2, d3 = 3, 4, 5
 pmf1 = pmf_from_seq(1:d1, normalize(rand(d1)))
 pmf2 = pmf_from_seq(1:d2, normalize(rand(d2)))
 pmf3 = pmf_from_seq(1:d3, normalize(rand(d3)))

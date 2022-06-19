@@ -9,7 +9,7 @@ export Pmf, pmf_from_seq, mult_likelihood, max_prob, min_prob,
     make_weibull_pmf, cdf_from_dist,
     make_gamma_pmf, make_normal_pmf, pmf_from_dist, pmf_from_tuples,
     expo_pdf, kde_from_sample, kde_from_pmf, items, outer, percentile,
-    unzip
+    unzip, ndims
     
 # from Base:
 export getindex, setindex!, copy, values, show, (+), (*), (==), (^), (-), (/), isapprox
@@ -580,11 +580,12 @@ function make_joint(j::Joint, z_pmf::Pmf)
     d1, d2 = size(j.M)
     zs = values(z_pmf)
     d3 = length(zs)
-    #M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d1,d2,d3), (1,2,3))
     M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d3,d1,d2), (3,2,1))
     xs, ys = j.dims
     Joint(M, [ys, xs, zs])
 end
+
+make_joint(x_pmf::Pmf, y_pmf::Pmf, z_pmf::Pmf) = make_joint(make_joint(x_pmf, y_pmf), z_pmf)
 
 function column(j::Joint, x_val)
     index = findfirst(round.(xs(j), digits=3) .≈ x_val)
@@ -654,7 +655,11 @@ function marginals3(pmf::Pmf)
 end
 
 function mult_likelihood(j::Joint, likelihood)
-    Joint(normalize(j.M .* likelihood), xs(j), ys(j))
+    if ndims(j) == 2
+        Joint(normalize(j.M .* likelihood), xs(j), ys(j))
+    else
+        Joint(normalize(j.M .* likelihood), j.dims)
+    end
 end
 
 (*)(d::Joint, likelihood) = mult_likelihood(d, likelihood)
@@ -729,10 +734,10 @@ function show(io::IO, j::Joint)
     if ndims(j) == 2
         show(io, joint_to_df(j))
     else
-        show(io, showJ3d(j))
-        #for j in showJ3d(j)
-        #    show(io, j)
-        #end
+        for j1 in showJ3d(j)
+            print(io, "\n")
+            show(io, j1)
+        end
     end
 end
 
@@ -740,15 +745,18 @@ function show(io::IO, ::MIME"text/plain", j::Joint)
     if ndims(j) == 2
         show(io, "text/plain", joint_to_df(j))
     else
-        show(io,"test/plain", "big joint")
-        #show(io,"test/plain", showJ3d(j))
+        for j1 in showJ3d(j)
+            show(io,"text/plain", j1)
+        end
     end
 end
 function show(io::IO, ::MIME"text/html", j::Joint)
     if ndims(j) == 2
         show(io, "text/html", joint_to_df(j))
     else
-        show(io, "text/html", "big joint")
+        for j1 in showJ3d(j)
+            show(io,"text/html", j1)
+        end
     end
 end
 
@@ -806,7 +814,11 @@ function visualize_joint(M::AbstractMatrix; xs = missing, ys=missing, c = :greys
 end
 
 function contour(j::Joint; kwargs...)
-    contour(xs(j), ys(j), j.M; kwargs...)
+    if ndims(j) == 2
+        contour(xs(j), ys(j), j.M; kwargs...)
+    else
+        contour(xs(j), ys(j), zs(j), j.M; kwargs...)
+    end
 end
 
 function contour!(j::Joint; kwargs...)
