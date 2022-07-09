@@ -54,13 +54,13 @@ using Test
     d=pmf_from_seq(1:6)
     @test mean(reduce(add_dist, fill(d, 3))) ≈ 10.5
     @test probs(sub_dist(d, d))[4] ≈ 0.1111111111111111
-    xs = (values(d), [x for x in 0.1:0.01:0.15])
-    @test probs(d - xs |> make_pmf)[3] ≈ 0.18666666666666668
+    xvals = (values(d), [x for x in 0.1:0.01:0.15])
+    @test probs(d - xvals |> make_pmf)[3] ≈ 0.18666666666666668
     @test values(sub_dist(d, d))[4] ≈ -2
     @test probs(mult_dist(d, d))[6] ≈ 0.1111111111111111
-    @test probs(d * xs |> make_pmf)[6] ≈ 0.2
+    @test probs(d * xvals |> make_pmf)[6] ≈ 0.2
     @test values(mult_dist(d, d))[6] ≈ 6
-    @test values(d / xs |> make_pmf)[6] ≈ 6
+    @test values(d / xvals |> make_pmf)[6] ≈ 6
     @test probs(make_binomial(4, 0.5))[3] ≈ 0.375
     c = make_cdf(d)
     @test cdf(c, 3) ≈ 0.5
@@ -160,5 +160,20 @@ using Test
     @test [sum(view(M4, :,:,x)) for x in 1:d3] ≈ probs(m3)
     @test [sum(view(M4, x,:,:)) for x in 1:d1] ≈ probs(m1)
     @test [sum(view(M4, :,x,:)) for x in 1:d2] ≈ probs(m2)
+
+    """
+    Test construction of 3d joint distribution
+    """
+
+    a = pmf_from_seq(1:5)
+    b = pmf_from_seq(2:7)
+    c = pmf_from_seq(3:9)
+    j = make_joint(a,b,c)
+    @test a ≈ marginal(j, 1)
+    @test b ≈ marginal(j, 2)
+    @test c ≈ marginal(j, 3)
+    @test values(a) == xs(j)
+    @test values(b) == ys(j)
+    @test values(c) == zs(j)
 end
 end

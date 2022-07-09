@@ -552,7 +552,6 @@ Joint distributions.
 export Joint, make_joint, visualize_joint, visualize_joint!, column, row, joint_to_df,
     collect_vals, collect_func, marginal, marginals3, stack, unstack, index, columns, xs, ys, zs
 
-j3d_order = [3,1,2]
 struct Joint
     M::Array
     dims::Vector{Vector}
@@ -581,11 +580,11 @@ function make_joint(j::Joint, z_pmf::Pmf)
     zs = values(z_pmf)
     d3 = length(zs)
     M = permutedims(reshape(outer(*, reshape(j.M, d1*d2), probs(z_pmf)), d3,d1,d2), (3,2,1))
-    xs, ys = j.dims
-    Joint(M, [ys, xs, zs])
+    ys, xs = j.dims
+    Joint(M, [xs, ys, zs])
 end
 
-make_joint(x_pmf::Pmf, y_pmf::Pmf, z_pmf::Pmf) = make_joint(make_joint(x_pmf, y_pmf), z_pmf)
+make_joint(x_pmf::Pmf, y_pmf::Pmf, z_pmf::Pmf) = make_joint(make_joint(y_pmf, x_pmf), z_pmf)
 
 function column(j::Joint, x_val)
     index = findfirst(round.(xs(j), digits=3) .≈ x_val)
@@ -613,16 +612,16 @@ function marginal(joint::Joint, dim)
     	sums = sum(joint.M, dims=dim)
     	pmf_from_seq(dim==1 ? xs(joint) : ys(joint), vec(sums))
     else
-        order = [3, 1, 2]
-        use_dim = order[dim]
-        d = size(joint.M)[use_dim]
-        if use_dim == 1
-            sums = [sum(view(joint.M, x,:,:)) for x in 1:d]
-            pmf_from_seq(ys(joint), sums)
-        elseif use_dim == 2
+        if dim == 1
+            d = size(joint.M)[2]
             sums = [sum(view(joint.M, :,x,:)) for x in 1:d]
             pmf_from_seq(xs(joint), sums)
+        elseif dim == 2
+            d = size(joint.M)[1]
+            sums = [sum(view(joint.M, x,:,:)) for x in 1:d]
+            pmf_from_seq(ys(joint), sums)
         else
+            d = size(joint.M)[3]
             sums = [sum(view(joint.M, :,:,x)) for x in 1:d]
             pmf_from_seq(zs(joint), sums)
         end

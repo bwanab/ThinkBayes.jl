@@ -39,7 +39,7 @@ snow = snow_all[2:end-1, :]
 begin
 	scatter(snow.YEAR, snow.SNOW_sum)
 	plot!(title="Total annual snowfall at Blue Hills, MA")
-	plot!(xaxis=("Total annual snowfall (inches)"), yaxis=("Year"), label="Snow")
+	plot!(xaxis=("Total annual snowfall (inches)"), yaxis=("Year"), label="Snow", legend_position=:topleft)
 end
 
 # ╔═╡ 74ed34bc-f45f-453a-85fc-de14403f8e61
@@ -55,6 +55,7 @@ pmf_snowfall = pmf_from_seq(sort(snow.SNOW_sum))
 begin
 	mu = mean(pmf_snowfall)
 	sigma = std(pmf_snowfall)
+	mu, sigma
 end
 
 # ╔═╡ fa3260ba-ced6-4530-ab41-3ddfa90fb2ae
@@ -158,7 +159,7 @@ md"## The Update"
 
 # ╔═╡ 7e7d2106-a2a1-4b1a-a0ec-3d0b91e2b515
 md"""
-The following code has two versions of _correctedness_. The old correct version is using my original implementation of 3 variable pmfs which was a linear pmf where the values are (x, (y, z)) shaped. The new correct version is using 3D array based joint distributions where the axes are x, y, z.
+The following code has two versions of _correctness_. The old correct version is using my original implementation of 3 variable pmfs which was a linear pmf where the values are (x, (y, z)) shaped. The new correct version is using 3D array based joint distributions where the axes are x, y, z.
 
 As implied, both produce correct numbers, but I'm still a bit confused about the arrangement of the x, y, z axes. I have a couple of hypotheses:
 
@@ -181,8 +182,14 @@ begin
 	likelihoods = [compute_likelihood(slope, inter, sigma, xss, yss) for (slope, (inter, sigma)) in values(prior)]
 end
 
+# ╔═╡ ba245d94-9222-432e-aee7-aa360943dfce
+values(prior)
+
+# ╔═╡ e0960e05-16f4-4fa1-a8b0-4407835f2f1d
+ys(pp)
+
 # ╔═╡ b5311257-57d2-48d0-8efe-f266cc892f76
-likes = [compute_likelihood(slope, inter, sigma, xss, yss) for slope in zs(pp) for inter in xs(pp) for sigma in ys(pp)]
+likes = [compute_likelihood(slope, inter, sigma, xss, yss)  for slope in zs(pp) for sigma in xs(pp) for inter in ys(pp)  ]
 
 # ╔═╡ 2c0d367a-5ba1-47ff-a46b-3f347c7b4b32
 likes2 = reshape(likes, size(pp))
@@ -203,25 +210,28 @@ end;
 posterior_slopes, posterior_inters, posterior_sigmas = ThinkBayes.marginals3(posterior_pmf);
 
 # ╔═╡ 8f69b6d5-ec80-4077-81ab-5e2ea745153b
-plot(posterior_sigmas)
+a1 = plot(posterior_sigmas, xaxis=("sigma"), yaxis=("PDF"));
 
 # ╔═╡ e9bb673e-cbd5-4e17-8cdc-d05f91529646
-plot(marginal(posterior_joint, 2))
+b1 = plot(marginal(posterior_joint, 1));
 
 # ╔═╡ f9f3bf0c-8b7c-42e5-8752-92515b8fee0f
-plot(posterior_inters, xaxis=("intercept (inches)"), yaxis=("PDF"), title="Posterior marginal distribution of intercept")
+a2 = plot(posterior_inters, xaxis=("intercept (inches)"));
 
 # ╔═╡ a7a3bc72-8e7d-491d-81a2-dba3efcc5e90
-plot(marginal(posterior_joint, 3))
+b2 = plot(marginal(posterior_joint, 2));
 
 # ╔═╡ 92dbb2f7-0cc2-4b28-9dde-783ee6547d51
 mean(posterior_inters), credible_interval(posterior_inters, 0.9)
 
 # ╔═╡ 5f18e97d-1150-4d9b-b881-be3f9e94e6a7
-plot(posterior_slopes, xaxis=("slope (inches)"), yaxis=("PDF"), title="Posterior marginal distribution of slope")
+a3 = plot(posterior_slopes, xaxis=("slope (inches)"));
 
 # ╔═╡ e3a858e2-8e04-4db6-a956-cc965eb417f6
-plot(marginal(posterior_joint, 1))
+b3 = plot(marginal(posterior_joint, 3));
+
+# ╔═╡ 37dbfd29-0c03-489a-8ed4-6cbdde3b09c6
+plot([a1, a2, a3, b1, b2, b3]..., layout=(2,3), size=[800, 400])
 
 # ╔═╡ 4011772f-4c2b-4783-9dcd-e11eb5d7089d
 mean(posterior_slopes), credible_interval(posterior_slopes, 0.9)
@@ -273,6 +283,8 @@ md"## Optimization"
 # ╟─da14930f-1a4b-419d-b33f-d4ebf7d0cbc6
 # ╟─7e7d2106-a2a1-4b1a-a0ec-3d0b91e2b515
 # ╠═7186ccaf-30e5-40f9-bb28-88aa522c10c3
+# ╠═ba245d94-9222-432e-aee7-aa360943dfce
+# ╠═e0960e05-16f4-4fa1-a8b0-4407835f2f1d
 # ╠═b5311257-57d2-48d0-8efe-f266cc892f76
 # ╠═2c0d367a-5ba1-47ff-a46b-3f347c7b4b32
 # ╠═f40b39db-8298-4a2d-bcaf-5d670bcc79a4
@@ -286,6 +298,7 @@ md"## Optimization"
 # ╠═92dbb2f7-0cc2-4b28-9dde-783ee6547d51
 # ╠═5f18e97d-1150-4d9b-b881-be3f9e94e6a7
 # ╠═e3a858e2-8e04-4db6-a956-cc965eb417f6
+# ╠═37dbfd29-0c03-489a-8ed4-6cbdde3b09c6
 # ╠═4011772f-4c2b-4783-9dcd-e11eb5d7089d
 # ╠═20e5609b-4415-4d46-8d17-2c9ab5a5ccd8
 # ╟─cbf40631-39f3-4bf8-aea7-46da201a8bfc
