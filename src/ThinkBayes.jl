@@ -587,12 +587,12 @@ end
 make_joint(x_pmf::Pmf, y_pmf::Pmf, z_pmf::Pmf) = make_joint(make_joint(y_pmf, x_pmf), z_pmf)
 
 function column(j::Joint, x_val)
-    index = findfirst(round.(xs(j), digits=3) .≈ x_val)
+    index = findfirst(round.(xs(j), digits=4) .≈ x_val)
     j.M[:,index]
 end
 
 function row(j::Joint, y_val)
-    index = findfirst(round.(ys(j), digits=3) .≈ y_val)
+    index = findfirst(round.(ys(j), digits=4) .≈ y_val)
     j.M[index,:]
 end
 
@@ -604,7 +604,7 @@ zvalues(j::Joint) = j.dims[3]  # zs
 zs(j::Joint) = j.dims[3]
 
 function joint_to_df(j::Joint)
-    DataFrame(hcat(ys(j), j.M), vcat(["Index"], string.(round.(xs(j), digits=3))))
+    DataFrame(hcat(ys(j), j.M), vcat(["Index"], string.(round.(xs(j), digits=4))))
 end
 
 function marginal(joint::Joint, dim)
@@ -687,8 +687,13 @@ will return:
 ([(1, 4), (1, 5), (1, 6), (2, 4), (2, 5), (2, 6)], [4, 5, 6, 8, 10, 12])
 """
 function stack(j::Joint)
-    vals = [(x, y) for x in xs(j) for y in ys(j)]
-    probs = vec(j.M)
+    if length(size(j.M)) == 2
+        vals = [(x, y) for x in xs(j) for y in ys(j)]
+        probs = vec(j.M)
+    else
+        vals = [(x,y,z) for x in xs(j) for y in ys(j) for z in zs(j)]
+        probs = vec(permutedims(j.M, (3,1,2)))
+    end
     (vals, probs)
 end
 
@@ -716,6 +721,10 @@ transpose(j::Joint) = Joint(transpose(j.M), columns(j), index(j))
 
 size(j::Joint) = size(j.M)
 ndims(j::Joint) = length(size(j))
+
+function rand(j::Joint, n::Int64)
+    rand(pmf_from_seq(stack(j)...), n)
+end
 
 function showJ3d(j3::Joint)
     d4, d5, d3 = size(j3)

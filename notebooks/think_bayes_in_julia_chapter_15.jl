@@ -7,7 +7,7 @@ using InteractiveUtils
 # ╔═╡ 6b6640d0-e1de-11ec-3baf-01ded65b80ff
 begin
 	import Pkg
-	Pkg.develop(path="/Users/williamallen/src/ThinkBayes.jl")
+	Pkg.develop(path=homedir()*"/src/ThinkBayes.jl")
 	using ThinkBayes
 end
 

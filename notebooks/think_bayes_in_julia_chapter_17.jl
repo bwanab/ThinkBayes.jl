@@ -7,21 +7,27 @@ using InteractiveUtils
 # ╔═╡ 80131c5a-eb24-11ec-2d5b-71a8a2588bd7
 begin
 	import Pkg
-	Pkg.develop(path="/Users/williamallen/src/ThinkBayes.jl")
+	Pkg.develop(path=homedir()*"/src/ThinkBayes.jl")
 	using ThinkBayes
 end
 
 # ╔═╡ ec9b2808-3cb3-4fb6-9afe-4d70e3fd472c
-using DataFrames, CSV, PlutoUI, Dates, Plots, Distributions, GLM
+using DataFrames, CSV, PlutoUI, Dates, Plots, Distributions, GLM, Random, Interpolations
 
 # ╔═╡ a0cbc648-5c95-42ad-a31a-099b86f9cb21
 TableOfContents()
+
+# ╔═╡ d213924b-4243-4b0a-a80f-de704d6e806f
+md"# Snowfall in MA"
 
 # ╔═╡ 7b01e654-6ec3-4a02-b1da-79df61d9fe21
 df = DataFrame(CSV.File(download("https://github.com/AllenDowney/ThinkBayes2/raw/master/data/2239075.csv")))
 
 # ╔═╡ ade8920c-dcc3-44b9-a729-a9807ed53eaa
-dropmissing!(df, :SNOW)
+begin
+	dropmissing!(df, :SNOW)
+	dropmissing!(df, :TMIN)
+end
 
 # ╔═╡ 5aa38844-3e94-42e4-ab1b-7a76f925500a
 df.YEAR = year.(df.DATE)
@@ -192,7 +198,7 @@ ys(pp)
 likes = [compute_likelihood(slope, inter, sigma, xss, yss)  for slope in zs(pp) for sigma in xs(pp) for inter in ys(pp)  ]
 
 # ╔═╡ 2c0d367a-5ba1-47ff-a46b-3f347c7b4b32
-likes2 = reshape(likes, size(pp))
+likes2 = reshape(likes, size(pp));
 
 # ╔═╡ f40b39db-8298-4a2d-bcaf-5d670bcc79a4
 maximum(likelihoods), maximum(likes), minimum(likelihoods), minimum(likes)
@@ -239,13 +245,265 @@ mean(posterior_slopes), credible_interval(posterior_slopes, 0.9)
 # ╔═╡ 20e5609b-4415-4d46-8d17-2c9ab5a5ccd8
 cdf(make_cdf(posterior_slopes), 0)
 
+# ╔═╡ 58741dcc-1b8c-4830-90d2-b91ec3b7551a
+pj = make_joint(marginal(posterior_joint, 3), marginal(posterior_joint, 2));
+
+# ╔═╡ f6fc984c-5692-4ba7-843c-193af68bd6de
+contour(pj)
+
 # ╔═╡ cbf40631-39f3-4bf8-aea7-46da201a8bfc
-md"## Optimization"
+md"## Optimization
+
+skipped for now"
+
+# ╔═╡ b522db3c-6cd2-40a2-8d28-96702874c3fb
+begin
+	zz = zs(pp)
+	yy = ys(pp)
+	zlen, ylen = length(zz), length(yy)
+	joint3 = [(zz[zi], yy[yi], pp.M[yi,:,zi]) for zi in 1:zlen for yi in 1:ylen]
+end
+
+# ╔═╡ b20fe8f4-8fcc-4633-83a9-be82f5dee6be
+length(pp.M[1,:,1])
+
+# ╔═╡ bd1febb8-b7d5-4e0a-925f-0a9b8094a286
+md"# Marathon World Record"
+
+# ╔═╡ 776ebc1a-9e39-44b6-9691-b4f21a763fdf
+table = DataFrame(CSV.File(homedir()*"/src/ThinkBayes.jl/marathon_times.csv", dateformat="hh:mm:ss"))
+
+# ╔═╡ c2c7650c-5c22-40bd-aaf3-579896f83788
+parse_time(s) = sum(parse.(Float64, split(s, ":")) .* [60^2, 60, 1])
+
+# ╔═╡ 8e017761-c277-462e-afc0-b668b538da0b
+parse_time(table[16, :Time])
+
+# ╔═╡ 04200a27-78c7-4a47-b0c9-78fe65c11fad
+table.Seconds = [parse_time(x) for x in table.Time]
+
+# ╔═╡ b065d6b4-9516-439b-8461-12f4bb2853e7
+function parsedate(dt)
+	md,ys = split(dt, ", ")
+	ms,ds = split(md, " ")
+	m = findfirst(x -> x == ms, ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"])
+	d = parse(Int, ds)
+	y = parse(Int, ys[1:4])
+	Date(y, m, d)
+end
+
+# ╔═╡ 161c906b-0bd8-4003-84d1-8c2b0f5c316a
+table.Date = [parsedate(dt) for dt in table.Date];
+
+# ╔═╡ 5ded5619-dbd9-438f-899e-f598ca23cec7
+table.y = (26.2 ./ table.Seconds) .* 3600
+
+# ╔═╡ fd86f76a-996b-4a29-96a5-2784248af278
+scatter(table.Date, table.y)
+
+# ╔═╡ f800cc5c-c871-4d1b-aff6-6a345d93c0b6
+timedelta = table.Date - Date(1995)
+
+# ╔═╡ f052d6d3-40dd-44fc-ae15-3ba68b498cfe
+table.x = Dates.value.(timedelta) ./ 365.25
+
+# ╔═╡ 7c8e8b91-b7de-4b21-9a12-6027e0452768
+recent = table[table.Date .> Date(1970),:]
+
+# ╔═╡ e34c87fa-b51b-479c-a467-f63de478d1d8
+recent
+
+# ╔═╡ fb2077d4-27c0-4fc9-a234-e6cc48fd10d6
+scatter(recent.Date, recent.y)
+
+# ╔═╡ cdc1fc69-db45-4b22-bb7a-80e625aa6840
+maximum(recent.x)
+
+# ╔═╡ b0d16dc7-4ab0-4593-83bb-a95e13bf048b
+m_results = lm(@formula(y ~ x), recent)
+
+# ╔═╡ bf7d6f38-1eaa-4b82-b526-8bc5b59ec6b5
+std(residuals(m_results))
+
+# ╔═╡ 5e42f35e-1f5f-4703-9aa3-8e49048dc73e
+md"## Priors"
+
+# ╔═╡ 56cac61a-cbb2-46f3-b1b3-b74c6f373986
+m_prior_slope = pmf_from_seq(LinRange(0.012, 0.018, 51));
+
+# ╔═╡ 42bc7287-533e-4773-8e86-2276cabc77ba
+m_prior_inter = pmf_from_seq(LinRange(12.4, 12.5, 41));
+
+# ╔═╡ 6b52f227-14f5-4994-9daf-4d428777589d
+m_prior_sigma = pmf_from_seq(LinRange(0.01, 0.21, 31));
+
+# ╔═╡ 300b234b-9307-4701-b739-c7c1d9500535
+m_prior = make_joint(m_prior_sigma, m_prior_inter, m_prior_slope);
+
+# ╔═╡ 88cadc6e-6d80-4eef-9ea9-d41287105017
+begin
+	m_xs = recent.x
+	m_ys = recent.y
+	m_likes = [compute_likelihood(slope, inter, sigma, m_xs, m_ys)  for slope in zs(m_prior) for sigma in xs(m_prior) for inter in ys(m_prior)  ]
+end
+
+# ╔═╡ b5d1dd33-b19d-4d8c-863d-c4a993ea51d0
+m_likes2 = reshape(m_likes, size(m_prior));
+
+# ╔═╡ 57738a5c-a5fd-45da-a2aa-113ad6d6b6bf
+m_posterior_joint = m_prior * m_likes2;
+
+# ╔═╡ aabebba3-09e1-4790-9607-33d9b33d4122
+plot(marginal(m_posterior_joint, 1), xaxis="Sigma")
+
+# ╔═╡ aa6c1c01-b833-4cb8-a565-d17c53baae2c
+plot(marginal(m_posterior_joint, 2), xaxis="Intercept")
+
+# ╔═╡ 7058a81f-2a16-42a8-a9b7-ed4f3c632206
+plot(marginal(m_posterior_joint, 3), xaxis="Slope")
+
+# ╔═╡ 2bf2d0af-cdc4-4ee8-8960-2eaf67441209
+md"## Prediction"
+
+# ╔═╡ 077f2509-8255-446b-b5ae-5f2eb92b6c35
+begin
+	Random.seed!(17)
+	sample = rand(m_posterior_joint, 101)
+end
+
+# ╔═╡ eefcf367-1358-4d42-8171-18d6bc082823
+begin
+	m_xvals = -25:2:50
+	m_pred = [inter .+ slope .* m_xvals .+ rand(Normal(0, sigma), length(m_xvals)) for (sigma, inter, slope) in sample]
+	pred = reduce(hcat, m_pred)
+end
+
+# ╔═╡ 25fbd848-4057-452f-a289-a0492298e768
+low, median, high = percentile(pred, [5, 50, 95], dims=1)
+
+# ╔═╡ ef1f93e6-f1fa-477c-84c9-dd5bd72fbfd1
+mean(high .- median), mean(median .- low)
+
+# ╔═╡ 7556a851-60f5-44b6-8802-bc296eaa0f72
+begin
+	plot(Date.(m_xvals .+ 1995), median, ribbon=(median .- low, high .- median), fillalpha=0.3)
+	scatter!(recent.Date, recent.y)
+	hline!([13.1], legend_position=:topleft)
+end
+
+# ╔═╡ fa59019d-856c-4cbd-9bf3-1b70320052db
+future = [LinearInterpolation(Interpolations.deduplicate_knots!(x, move_knots=true), m_xvals)(13.1) for x in [high, median, low]]
+
+# ╔═╡ 4406a122-898a-40da-8c4a-a41c852094a2
+[Date(1995) + Period(Day(round(x * 365.24))) for x in future]
+
+# ╔═╡ fa021aeb-28c6-4b66-9608-691000b37a02
+md"# Exercises"
+
+# ╔═╡ d525d152-56dd-4e80-a1fd-8ce431d5be5f
+df.YEAR = year.(df.DATE)
+
+# ╔═╡ 31406bc5-102d-4eb4-8f11-8dd064ba29f5
+df.TMID = (df.TMIN + df.TMAX) / 2
+
+# ╔═╡ baaaa99f-0334-4d44-9cb2-2149c32bbab8
+dropmissing!(df, :TMID)
+
+# ╔═╡ 588304b9-1037-4fab-8f13-9321ebea29d5
+tmid = [year=(first(g).YEAR, mean_temp=mean(g.TMID)) for g in groupby(df, :YEAR)];
+
+# ╔═╡ f5043e74-c3c6-4888-80fd-cf4f20d6ff9e
+complete = DataFrame(tmid[2:end-1]);
+
+# ╔═╡ 0603607d-8666-41fb-967f-5419020c0200
+scatter(complete.YEAR, complete.mean_temp, xaxis="year", yaxis="Annual average temp (F)")
+
+# ╔═╡ 76f15456-54c4-43a9-8ed7-f42be43ee3b5
+t_offset = round(mean(complete.YEAR))
+
+# ╔═╡ 51c75fff-7634-44fc-aaac-a0fdee149da6
+complete.x = complete.YEAR .- t_offset
+
+# ╔═╡ ed2127a8-ecc2-4400-9219-c94c812f8a4c
+complete.y = complete.mean_temp
+
+# ╔═╡ e93241bb-d2b8-45ad-9470-011bb97c6803
+t_result = lm(@formula(y ~ x), complete)
+
+# ╔═╡ fde360e8-2c2e-4003-80b2-2615f548899f
+std(residuals(t_result))
+
+# ╔═╡ a87c4440-7581-484c-9c32-2468c2a2893c
+t_prior_inter = pmf_from_seq(LinRange(49, 50, 41));
+
+# ╔═╡ e6097687-7bf5-4a11-a0fc-77083c766367
+t_prior_slope = pmf_from_seq(LinRange(0.0, 0.1, 51));
+
+# ╔═╡ 53fafd86-4c1d-49bb-bd7d-0055a8627ca5
+t_prior_sigma = pmf_from_seq(LinRange(0.8, 1.4, 31));
+
+# ╔═╡ eb1c5661-3020-463a-8425-223aad630d06
+t_prior = make_joint(t_prior_sigma, t_prior_inter, t_prior_slope);
+
+# ╔═╡ c9505ec9-e952-40ac-9128-5939c7e653ca
+begin
+	t_xs = complete.x
+	t_ys = complete.y
+end
+
+# ╔═╡ 47c91c85-5367-4fc5-bfda-06a326699a09
+	t_likes = [compute_likelihood(slope, inter, sigma, t_xs, t_ys)  for slope in zs(t_prior) for sigma in xs(t_prior) for inter in ys(t_prior)  ]
+
+# ╔═╡ 26a90ae0-8985-425c-9431-14dcb3ac8c9f
+t_likes2 = reshape(t_likes, size(t_prior));
+
+# ╔═╡ 337252f7-e976-4aaf-b7bf-ed6545f4ed34
+t_posterior_joint = t_prior * t_likes2;
+
+# ╔═╡ 0fd273d2-e12c-470b-b89e-aa5e92a550a3
+plot(marginal(t_posterior_joint, 1))
+
+# ╔═╡ 6db2be87-f449-4593-982b-488654245430
+plot(marginal(t_posterior_joint, 2))
+
+# ╔═╡ 20efc171-a14c-44f5-b8a1-e9916daa775e
+plot(marginal(t_posterior_joint, 3))
+
+# ╔═╡ 1e3b5739-ec4a-4f0d-8990-a67a90bf2fd8
+begin
+	Random.seed!(17)
+	t_sample = rand(t_posterior_joint, 101)
+end
+
+# ╔═╡ 29f6a9cf-ac02-42d1-9a81-fe529484e0e1
+begin
+	years = 1967:2:2067
+	t_xvals = years .- offset
+	t_pred_v = [inter .+ slope .* t_xvals .+ rand(Normal(0, sigma), length(t_xvals)) for (sigma, inter, slope) in t_sample]
+	t_pred = reduce(hcat, t_pred_v)
+end
+
+# ╔═╡ 802be637-8123-494b-9e6a-da1b4c22cd65
+length(t_xvals)
+
+# ╔═╡ 30fd5228-42aa-406c-983d-0d6cf73b12f9
+t_low, t_median, t_high = percentile(t_pred, [5, 50, 95], dims=1)
+
+# ╔═╡ 8f081796-59d3-4010-9d26-7e7d6a38e004
+begin
+	dates = Date.(t_xvals .+ t_offset)
+	plot(dates, t_median, ribbon=(t_median .- t_low, t_high .- t_median), fillalpha=0.3)
+	scatter!(Date.(complete.YEAR), complete.y)
+end
+
+# ╔═╡ 0f2b548b-2887-4019-8001-15083fa3a768
+t_median[end] - t_median[1]
 
 # ╔═╡ Cell order:
 # ╠═80131c5a-eb24-11ec-2d5b-71a8a2588bd7
 # ╠═ec9b2808-3cb3-4fb6-9afe-4d70e3fd472c
 # ╠═a0cbc648-5c95-42ad-a31a-099b86f9cb21
+# ╟─d213924b-4243-4b0a-a80f-de704d6e806f
 # ╠═7b01e654-6ec3-4a02-b1da-79df61d9fe21
 # ╠═ade8920c-dcc3-44b9-a729-a9807ed53eaa
 # ╠═5aa38844-3e94-42e4-ab1b-7a76f925500a
@@ -274,7 +532,7 @@ md"## Optimization"
 # ╠═079ca099-25c3-41a8-a764-f67d790de128
 # ╠═fcde48b9-3300-4351-a4ea-f84a9aa24f1c
 # ╠═c4fb5bb7-fc65-47aa-a553-6bfc3b5bc49d
-# ╟─dca66cb9-2350-406a-9737-e455ec50b028
+# ╠═dca66cb9-2350-406a-9737-e455ec50b028
 # ╠═a9530988-632c-444e-87b5-cfb565b77932
 # ╟─f359ce7b-82bc-4b24-91d2-5bdb66a0802c
 # ╠═afd8d712-a614-4b82-8f13-edda445eea8f
@@ -301,4 +559,73 @@ md"## Optimization"
 # ╠═37dbfd29-0c03-489a-8ed4-6cbdde3b09c6
 # ╠═4011772f-4c2b-4783-9dcd-e11eb5d7089d
 # ╠═20e5609b-4415-4d46-8d17-2c9ab5a5ccd8
+# ╠═58741dcc-1b8c-4830-90d2-b91ec3b7551a
+# ╠═f6fc984c-5692-4ba7-843c-193af68bd6de
 # ╟─cbf40631-39f3-4bf8-aea7-46da201a8bfc
+# ╠═b522db3c-6cd2-40a2-8d28-96702874c3fb
+# ╠═b20fe8f4-8fcc-4633-83a9-be82f5dee6be
+# ╟─bd1febb8-b7d5-4e0a-925f-0a9b8094a286
+# ╠═776ebc1a-9e39-44b6-9691-b4f21a763fdf
+# ╠═c2c7650c-5c22-40bd-aaf3-579896f83788
+# ╠═8e017761-c277-462e-afc0-b668b538da0b
+# ╠═04200a27-78c7-4a47-b0c9-78fe65c11fad
+# ╠═b065d6b4-9516-439b-8461-12f4bb2853e7
+# ╠═161c906b-0bd8-4003-84d1-8c2b0f5c316a
+# ╠═5ded5619-dbd9-438f-899e-f598ca23cec7
+# ╠═fd86f76a-996b-4a29-96a5-2784248af278
+# ╠═f800cc5c-c871-4d1b-aff6-6a345d93c0b6
+# ╠═f052d6d3-40dd-44fc-ae15-3ba68b498cfe
+# ╠═7c8e8b91-b7de-4b21-9a12-6027e0452768
+# ╠═e34c87fa-b51b-479c-a467-f63de478d1d8
+# ╠═fb2077d4-27c0-4fc9-a234-e6cc48fd10d6
+# ╠═cdc1fc69-db45-4b22-bb7a-80e625aa6840
+# ╠═b0d16dc7-4ab0-4593-83bb-a95e13bf048b
+# ╠═bf7d6f38-1eaa-4b82-b526-8bc5b59ec6b5
+# ╟─5e42f35e-1f5f-4703-9aa3-8e49048dc73e
+# ╠═56cac61a-cbb2-46f3-b1b3-b74c6f373986
+# ╠═42bc7287-533e-4773-8e86-2276cabc77ba
+# ╠═6b52f227-14f5-4994-9daf-4d428777589d
+# ╠═300b234b-9307-4701-b739-c7c1d9500535
+# ╠═88cadc6e-6d80-4eef-9ea9-d41287105017
+# ╠═b5d1dd33-b19d-4d8c-863d-c4a993ea51d0
+# ╠═57738a5c-a5fd-45da-a2aa-113ad6d6b6bf
+# ╠═aabebba3-09e1-4790-9607-33d9b33d4122
+# ╠═aa6c1c01-b833-4cb8-a565-d17c53baae2c
+# ╠═7058a81f-2a16-42a8-a9b7-ed4f3c632206
+# ╟─2bf2d0af-cdc4-4ee8-8960-2eaf67441209
+# ╠═077f2509-8255-446b-b5ae-5f2eb92b6c35
+# ╠═eefcf367-1358-4d42-8171-18d6bc082823
+# ╠═25fbd848-4057-452f-a289-a0492298e768
+# ╠═ef1f93e6-f1fa-477c-84c9-dd5bd72fbfd1
+# ╠═7556a851-60f5-44b6-8802-bc296eaa0f72
+# ╠═fa59019d-856c-4cbd-9bf3-1b70320052db
+# ╠═4406a122-898a-40da-8c4a-a41c852094a2
+# ╠═fa021aeb-28c6-4b66-9608-691000b37a02
+# ╠═d525d152-56dd-4e80-a1fd-8ce431d5be5f
+# ╠═31406bc5-102d-4eb4-8f11-8dd064ba29f5
+# ╠═baaaa99f-0334-4d44-9cb2-2149c32bbab8
+# ╠═588304b9-1037-4fab-8f13-9321ebea29d5
+# ╠═f5043e74-c3c6-4888-80fd-cf4f20d6ff9e
+# ╠═0603607d-8666-41fb-967f-5419020c0200
+# ╠═76f15456-54c4-43a9-8ed7-f42be43ee3b5
+# ╠═51c75fff-7634-44fc-aaac-a0fdee149da6
+# ╠═ed2127a8-ecc2-4400-9219-c94c812f8a4c
+# ╠═e93241bb-d2b8-45ad-9470-011bb97c6803
+# ╠═fde360e8-2c2e-4003-80b2-2615f548899f
+# ╠═a87c4440-7581-484c-9c32-2468c2a2893c
+# ╠═e6097687-7bf5-4a11-a0fc-77083c766367
+# ╠═53fafd86-4c1d-49bb-bd7d-0055a8627ca5
+# ╠═eb1c5661-3020-463a-8425-223aad630d06
+# ╠═c9505ec9-e952-40ac-9128-5939c7e653ca
+# ╠═47c91c85-5367-4fc5-bfda-06a326699a09
+# ╠═26a90ae0-8985-425c-9431-14dcb3ac8c9f
+# ╠═337252f7-e976-4aaf-b7bf-ed6545f4ed34
+# ╠═0fd273d2-e12c-470b-b89e-aa5e92a550a3
+# ╠═6db2be87-f449-4593-982b-488654245430
+# ╠═20efc171-a14c-44f5-b8a1-e9916daa775e
+# ╠═1e3b5739-ec4a-4f0d-8990-a67a90bf2fd8
+# ╠═29f6a9cf-ac02-42d1-9a81-fe529484e0e1
+# ╠═802be637-8123-494b-9e6a-da1b4c22cd65
+# ╠═30fd5228-42aa-406c-983d-0d6cf73b12f9
+# ╠═8f081796-59d3-4010-9d26-7e7d6a38e004
+# ╠═0f2b548b-2887-4019-8001-15083fa3a768

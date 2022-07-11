@@ -10,7 +10,7 @@ using Pkg
 # ╔═╡ 97b39b48-0a44-4ba3-bbd9-5a91cf1041fd
 # ╠═╡ disabled = true
 #=╠═╡
-Pkg.activate("/Users/williamallen/.julia/dev/ThinkBayes2")
+Pkg.activate(homedir()*"/.julia/dev/ThinkBayes2")
   ╠═╡ =#
 
 # ╔═╡ 0432f183-1e16-4934-9a7a-13f5050ff1a6
