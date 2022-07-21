@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 9e92093c-0540-11ed-026e-09e83026a114
-using DataFrames, CSV, Plots, Statistics, Flux
+using DataFrames, CSV, Plots, Statistics, Flux, Random
 
 # ╔═╡ aa132d9a-736a-4a2f-99b5-c1e37a12addc
 download("https://happiness-report.s3.amazonaws.com/2020/WHR20_DataForFigure2.1.xls", homedir()*"/src/ThinkBayes2/data/WHR20_DataForFigure2.1.xls")
@@ -19,78 +19,72 @@ names(df)
 # ╔═╡ 332b3f32-2d23-4911-8346-b3f60329f869
 begin
 	columns = [:Ladder_score, :Logged_GDP_per_capita, :Social_support, :Healthy_life_expectancy, :Freedom_to_make_life_choices, :Generosity, :Perceptions_of_corruption]
+	#columns = [:Ladder_score, :Logged_GDP_per_capita]
 	subset = df[:, columns]
-end
+end;
 
 # ╔═╡ 4a1ba39e-88e0-4583-b372-820af69d979d
-standardized = DataFrame([(col .- mean(col)) ./ std(col) for col in eachcol(subset)], columns)
+standardized = DataFrame([(col .- mean(col)) ./ std(col) for col in eachcol(subset)], columns);
+
+# ╔═╡ 43d3ec08-6b0e-4ed0-83f8-6273eb1b4241
+standardized.Country_name = df.Country_name
+
+# ╔═╡ 341fe71b-4c50-4b61-968f-7e3a534424a6
+train_ind = Random.shuffle(1:153)[1:120]
 
 # ╔═╡ d6c07970-32ee-4783-a5b4-c772b52dd275
-train_ind = unique(rand(1:nrow(standardized), 153))
+#train_ind = unique(rand(1:nrow(standardized), 153))
 
 # ╔═╡ a5d6d3bc-e49d-48d7-8edf-eada3bc00d34
-begin
+function build_data_set()
 	x = 1:nrow(standardized)
 	test_ind = x[x .∉ Ref(train_ind)]
-end
-
-# ╔═╡ f838b758-dc96-4e7d-a3d1-7ff1a5e1e37a
-length(train_ind), length(test_ind)
-
-# ╔═╡ 12957e3c-d751-4c34-8d2c-8b87cf987d5c
-begin
 	train_set = standardized[train_ind,:]
 	test_set = standardized[test_ind,:]
-end
-
-# ╔═╡ 3ed40d9e-662b-472b-9cbf-5cd77638bfcf
-begin
 	X_train = reduce(hcat, [train_set[:, col] for col in columns[2:end]])'
 	Y_train = reshape(train_set.Ladder_score, 1, nrow(train_set))
 	X_test = reduce(hcat, [test_set[:, col] for col in columns[2:end]])'
 	Y_test = reshape(test_set.Ladder_score, 1, nrow(test_set))	
+	X_train, Y_train, X_test, Y_test
 end
 
-# ╔═╡ 50bd9385-0beb-4d6f-bcaf-b71251825608
-model = Chain(
-	Dense(6, 3, relu),
-	Dense(3, 3, relu),
-	Dense(3, 1)
-)
-
-# ╔═╡ 7afca722-9ac4-4d9e-aa4b-70f8d08a5ee6
-loss(x, y) = Flux.Losses.mse(model(x), y)
+# ╔═╡ 2723c5fd-8557-48aa-be50-93a1f65f0e3e
+names(test_set)
 
 # ╔═╡ 3bb5f141-36ab-4ec9-bc84-d011d3e8605d
 opt = ADAM(0.01)
 
-# ╔═╡ accf8361-8880-4951-ad97-55ef585fe58f
-model(X_test)
-
-# ╔═╡ 37df3a40-379a-43d2-a2fe-c28c91cd9394
-Y_test
-
-# ╔═╡ 40f4ad8c-85b5-4743-a44c-9503419d1aa5
-data = Iterators.repeated((X_train, Y_train), 2000)
-
-# ╔═╡ 67055c60-1896-4283-8aab-f8f376c88ef9
-Flux.params(model)
-
-# ╔═╡ 21483869-0522-4bf5-9aa8-3d162a9295f0
+# ╔═╡ 50bd9385-0beb-4d6f-bcaf-b71251825608
 begin
-	log1 = []
-	cb() = push!(log1, loss(X_train, Y_train))
+	X_train, Y_train, X_test, Y_test = build_data_set()
+	#model = Chain(
+	#	Dense(length(columns) - 1, 96, relu),
+	#	Dense(96, 96, relu),
+	#	Dense(96, 10, relu),
+	#	Dense(10, 1)
+	#)
+	model=Dense(length(columns) - 1, 1)
+	data = Iterators.repeated((X_train, Y_train), 200)
+	log1=[]
+	loss(x, y) = Flux.Losses.mse(model(x), y)
+	cb() = push!(log1, loss(X_test, Y_test))
 	Flux.train!(loss, Flux.params(model), data, opt, cb=cb)
 end
 
-# ╔═╡ 881e929a-29a3-44da-9176-b9415c4a8ec9
-log1
+# ╔═╡ 4d5da997-c1f2-4f92-9ad4-3c09d2b5c5ab
+plot(log1)
 
 # ╔═╡ efb3caa0-2e7b-4e70-9ed7-a1579ff1f285
 loss(X_train, Y_train), loss(X_test, Y_test)
 
 # ╔═╡ f467411d-ace9-483c-9b2e-10bf9bd00c47
-sum(model.layers[1].weight, dims=1)
+#sum(model.layers[1].weight, dims=1)
+
+# ╔═╡ f8189469-5e1f-4c0e-aaad-48607d7cddc8
+model.weight
+
+# ╔═╡ 9b5f1de3-c409-4c42-87d4-e0842c037d7e
+columns[2:end]
 
 # ╔═╡ ae690984-a5ae-4963-a3c3-2e42066f7478
 columns[2:end]
@@ -101,8 +95,17 @@ begin
 	scatter!(model(X_test), Y_test, legend=false, color=:blue)
 end
 
-# ╔═╡ ed54cc0c-c8ae-4a76-9756-0acd6f0917a9
+# ╔═╡ 62d8ab88-b944-4768-aa55-7e6dd30cf91e
+begin
+	test_error_summary = DataFrame(Country_name=test_set.Country_name, error=reshape((model(X_test) .- Y_test) .^ 2, length(test_ind)), Ladder_score = test_set.Ladder_score)
+	error=sort(test_error_summary, order(:error, rev=true))
+end
 
+# ╔═╡ d0331203-2383-46bc-b017-665d2b2b9f26
+error[end-12:end,:]
+
+# ╔═╡ b3b6e260-6565-4c6d-a532-3e563568c73a
+test_set
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -111,6 +114,7 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
@@ -1459,24 +1463,22 @@ version = "0.9.1+5"
 # ╠═67e45f6b-7a3b-4986-94ad-a781a3cfb070
 # ╠═332b3f32-2d23-4911-8346-b3f60329f869
 # ╠═4a1ba39e-88e0-4583-b372-820af69d979d
+# ╠═43d3ec08-6b0e-4ed0-83f8-6273eb1b4241
+# ╠═341fe71b-4c50-4b61-968f-7e3a534424a6
 # ╠═d6c07970-32ee-4783-a5b4-c772b52dd275
 # ╠═a5d6d3bc-e49d-48d7-8edf-eada3bc00d34
-# ╠═f838b758-dc96-4e7d-a3d1-7ff1a5e1e37a
-# ╠═12957e3c-d751-4c34-8d2c-8b87cf987d5c
-# ╠═3ed40d9e-662b-472b-9cbf-5cd77638bfcf
+# ╠═2723c5fd-8557-48aa-be50-93a1f65f0e3e
 # ╠═50bd9385-0beb-4d6f-bcaf-b71251825608
-# ╠═7afca722-9ac4-4d9e-aa4b-70f8d08a5ee6
 # ╠═3bb5f141-36ab-4ec9-bc84-d011d3e8605d
-# ╠═accf8361-8880-4951-ad97-55ef585fe58f
-# ╠═37df3a40-379a-43d2-a2fe-c28c91cd9394
-# ╠═40f4ad8c-85b5-4743-a44c-9503419d1aa5
-# ╠═67055c60-1896-4283-8aab-f8f376c88ef9
-# ╠═21483869-0522-4bf5-9aa8-3d162a9295f0
-# ╠═881e929a-29a3-44da-9176-b9415c4a8ec9
+# ╠═4d5da997-c1f2-4f92-9ad4-3c09d2b5c5ab
 # ╠═efb3caa0-2e7b-4e70-9ed7-a1579ff1f285
 # ╠═f467411d-ace9-483c-9b2e-10bf9bd00c47
+# ╠═f8189469-5e1f-4c0e-aaad-48607d7cddc8
+# ╠═9b5f1de3-c409-4c42-87d4-e0842c037d7e
 # ╠═ae690984-a5ae-4963-a3c3-2e42066f7478
 # ╠═80e4f9b8-d021-4994-bbfd-b1b2f846c77a
-# ╠═ed54cc0c-c8ae-4a76-9756-0acd6f0917a9
+# ╠═62d8ab88-b944-4768-aa55-7e6dd30cf91e
+# ╠═d0331203-2383-46bc-b017-665d2b2b9f26
+# ╠═b3b6e260-6565-4c6d-a532-3e563568c73a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
