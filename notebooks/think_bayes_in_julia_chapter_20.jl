@@ -13,7 +13,10 @@ end
 
 
 # ╔═╡ 75a6c6c2-0917-11ed-3657-67a42568b31d
-using Plots, Distributions, DataFrames, Random, Interpolations
+using Plots, Distributions, DataFrames, Random, Interpolations, PlutoUI
+
+# ╔═╡ 02888228-3da5-4163-91c5-92085f6e5464
+TableOfContents()
 
 # ╔═╡ f98f6341-4595-4556-afc6-95aeb7b5b705
 md"# The Kidney Tumor Problem"
@@ -140,12 +143,13 @@ sims = [simulate_growth(pmf_rdt1) for _ in 1:101]
 
 # ╔═╡ dafe5dfb-66ac-4268-b612-709529719016
 begin
-	plot(legend=false, yaxis=([0.2, 0.5, 1, 2, 5, 10, 20]))
+	diameters = [4, 8, 16]
+	plot(legend=false)
+	hline!(diameters, linestyle=:dashdot)
 	for sim in sims
-		plot!(sim.age, sim.diameter, yscale=:log10)
+		plot!(sim.age, sim.diameter, yscale=:log10, yaxis=([0.2, 0.5, 1, 2, 5, 10, 20]))
 	end
-	vline!([16])
-	hline!([20])
+	plot!(yformatter=x->string(round(x)))
 end
 
 # ╔═╡ c79f4012-bcf5-4b9b-b267-e5b65b1a8949
@@ -169,11 +173,75 @@ begin
 end
 
 # ╔═╡ 2cbc5253-34b2-47b2-8a51-02cf78d509c7
+begin
+	plot()
+	for diameter in diameters
+		ages = interpolate_ages(sims, diameter)
+		cdf = cdf_from_seq(ages)
+		plot!(cdf, label=string(diameter)*" cm")
+	end
+	plot!()
+end
 
+# ╔═╡ a4d471a0-9086-4db0-86ba-31c1e66c9f8d
+md"# Approximate Baysian Calculation"
+
+# ╔═╡ 1b3e4e95-1940-40c4-b97e-7e3990d0fe74
+md"## Counting Cells"
+
+# ╔═╡ 0be3b768-5b83-4944-9562-7911accdbd87
+md"waiting until I figure out a pymc3 equivalent for julia"
+
+# ╔═╡ 3f96ce00-4a15-4ad0-9e26-08a02712df12
+md"# Exercises"
+
+# ╔═╡ 77358e2d-b49d-4e09-a061-9eddaedee58e
+md"## Socks"
+
+# ╔═╡ 4018a0a1-f2c9-4ad8-9477-5e3140317855
+begin
+	mu = 30
+	p = 0.866666
+	r = mu * (1-p) / p
+	prior_n_socks = NegativeBinomial(r, 1-p)
+	mean(prior_n_socks), std(prior_n_socks)
+end
+
+# ╔═╡ a7c2b70e-ed65-429a-90d8-2b160b871d07
+begin
+	prior_prop_pair = Beta(15, 2)
+	mean(prior_prop_pair)
+end
+
+# ╔═╡ 704f0521-8b8a-4ebb-bac9-9e2dc4dbb321
+pmf1 = pmf_from_seq(1:90, normalize([pdf(prior_n_socks, x) for x in 1:90]));
+
+# ╔═╡ 4d667831-54ce-4d7d-b942-955bbcfc3f98
+plot(pmf1, yaxis="PMF", xaxis=("Number of socks"), label="prior")
+
+# ╔═╡ f973a165-79a5-4b73-9857-0dc46e5fd186
+pmf2 = pmf_from_dist(range(0, 1, 101), prior_prop_pair);
+
+# ╔═╡ a7350a87-b3ac-49e6-8a8b-16f472bcd7a2
+plot(pmf2, yaxis="PDF", xaxis="Proportion of socks in pairs", label="prior")
+
+# ╔═╡ dde3923a-a343-48e7-aacf-7d0f0c6cd3fe
+begin
+	n_socks = rand(prior_n_socks)
+	prop_pairs = rand(prior_prop_pair)
+end
+
+# ╔═╡ dc80d3d7-c968-444a-98d8-1a7e2c8f926f
+begin
+	n_pairs = round(n_socks / 2 * prop_pairs)
+	n_odds = n_socks - n_pairs * 2
+	n_pairs, n_odds
+end
 
 # ╔═╡ Cell order:
 # ╠═ef34dcc9-bef6-46b0-a3ab-24b502c1ca09
 # ╠═75a6c6c2-0917-11ed-3657-67a42568b31d
+# ╠═02888228-3da5-4163-91c5-92085f6e5464
 # ╟─f98f6341-4595-4556-afc6-95aeb7b5b705
 # ╟─12801cc6-c07e-4372-bcb8-270d5a57acab
 # ╠═754db0fd-2991-4c3d-a637-50bd5530691b
@@ -202,3 +270,16 @@ end
 # ╠═c79f4012-bcf5-4b9b-b267-e5b65b1a8949
 # ╠═32016ec8-669a-48bc-aeeb-c7980a0ff37a
 # ╠═2cbc5253-34b2-47b2-8a51-02cf78d509c7
+# ╟─a4d471a0-9086-4db0-86ba-31c1e66c9f8d
+# ╟─1b3e4e95-1940-40c4-b97e-7e3990d0fe74
+# ╟─0be3b768-5b83-4944-9562-7911accdbd87
+# ╟─3f96ce00-4a15-4ad0-9e26-08a02712df12
+# ╟─77358e2d-b49d-4e09-a061-9eddaedee58e
+# ╠═4018a0a1-f2c9-4ad8-9477-5e3140317855
+# ╠═a7c2b70e-ed65-429a-90d8-2b160b871d07
+# ╠═704f0521-8b8a-4ebb-bac9-9e2dc4dbb321
+# ╠═4d667831-54ce-4d7d-b942-955bbcfc3f98
+# ╠═f973a165-79a5-4b73-9857-0dc46e5fd186
+# ╠═a7350a87-b3ac-49e6-8a8b-16f472bcd7a2
+# ╠═dde3923a-a343-48e7-aacf-7d0f0c6cd3fe
+# ╠═dc80d3d7-c968-444a-98d8-1a7e2c8f926f
