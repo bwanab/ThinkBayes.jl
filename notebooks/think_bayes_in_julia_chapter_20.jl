@@ -227,16 +227,98 @@ plot(pmf2, yaxis="PDF", xaxis="Proportion of socks in pairs", label="prior")
 
 # ╔═╡ dde3923a-a343-48e7-aacf-7d0f0c6cd3fe
 begin
-	n_socks = rand(prior_n_socks)
-	prop_pairs = rand(prior_prop_pair)
+	n_socks = rand(prior_n_socks, 1000)
+	prop_pairs = rand(prior_prop_pair, 1000)
 end
 
 # ╔═╡ dc80d3d7-c968-444a-98d8-1a7e2c8f926f
 begin
-	n_pairs = round(n_socks / 2 * prop_pairs)
-	n_odds = n_socks - n_pairs * 2
+	n_pairs = round.(n_socks ./ 2 .* prop_pairs)
+	n_odds = n_socks .- n_pairs .* 2
 	n_pairs, n_odds
 end
+
+# ╔═╡ e63332bf-5704-46dd-ac46-7ce65feb20ce
+mean(n_pairs),std(n_pairs), mean(n_odds), std(n_odds)
+
+# ╔═╡ 311846a3-56d6-4689-92ca-745c698b690e
+begin
+	n_pairs1 = 9
+	n_odds1 = 5
+	socks = vcat(1:n_pairs1, 1:n_odds1+n_pairs1)
+end
+
+# ╔═╡ 8bbc0d2c-39fb-4979-ad25-e4ed929cc289
+begin
+	shuffle!(socks)
+	picked_socks = socks[1:11]
+end
+
+# ╔═╡ 8ea94030-5c69-48e3-b0e9-388c20d182b5
+function find_counts(v)
+	u = unique(v)
+	c = [length(findall(y -> y == x, v)) for x in u]
+	u,c
+end
+
+# ╔═╡ f85b85b6-2f7a-4e08-b613-4bd100a2a4e7
+values, cts = find_counts(picked_socks)
+
+# ╔═╡ b8c5d74d-f385-4cca-9fd5-4fab3acb62e9
+begin
+	solo = sum(cts .== 1)
+	pairs = sum(cts .== 2)
+	solo, pairs
+end
+
+# ╔═╡ 944fe613-e3b7-41d3-8aec-11fe0c439566
+function pick_socks(n_pairs, n_odds, n_pick)
+	socks = vcat(1:n_pairs1, 1:n_odds1+n_pairs1)
+	shuffle!(socks)
+	picked_socks = socks[1:n_pick]
+	values, cts = find_counts(picked_socks)
+	pairs = sum(cts .== 2)
+	odds = sum(cts .== 1)
+	pairs, odds
+end
+
+# ╔═╡ a513fa1a-a4e0-438e-854f-bb79c55372b4
+pick_socks(n_pairs, n_odds, 11)
+
+# ╔═╡ d7b18331-7582-431c-9ca0-793605c5ea1b
+begin
+	data = (0, 11)
+	res = []
+	for i in 1:10000
+		n_socks = rand(prior_n_socks)
+		if n_socks > 10
+			prop_pairs = rand(prior_prop_pair)
+			n_pairs = round(n_socks / 2 * prop_pairs)
+			n_odds = n_socks - n_pairs * 2
+			result = pick_socks(n_pairs, n_odds, 11)
+			if result == data
+				push!(res, (n_socks=n_socks, n_pairs=n_pairs, n_odds=n_odds))
+			end
+		end
+	end
+	length(res)
+			
+end
+
+# ╔═╡ f89edfb0-6238-45f8-afa0-521b031ba638
+begin
+	results = DataFrame(res)
+	first(results, 6)
+end
+
+# ╔═╡ 49e99fba-4c4a-44f8-b186-63ea08fba827
+posterior_n_socks = pmf_from_seq(results.n_socks);
+
+# ╔═╡ 5f9bb2ea-6268-4844-8b5c-7078bc2093d9
+mean(posterior_n_socks), credible_interval(posterior_n_socks, 0.9)
+
+# ╔═╡ 2e291ed6-69ac-4fbf-9d1f-bb15bf5cf878
+plot(posterior_n_socks, yaxis="PMF", xaxis="Number of socks", label="posterior")
 
 # ╔═╡ Cell order:
 # ╠═ef34dcc9-bef6-46b0-a3ab-24b502c1ca09
@@ -283,3 +365,16 @@ end
 # ╠═a7350a87-b3ac-49e6-8a8b-16f472bcd7a2
 # ╠═dde3923a-a343-48e7-aacf-7d0f0c6cd3fe
 # ╠═dc80d3d7-c968-444a-98d8-1a7e2c8f926f
+# ╠═e63332bf-5704-46dd-ac46-7ce65feb20ce
+# ╠═311846a3-56d6-4689-92ca-745c698b690e
+# ╠═8bbc0d2c-39fb-4979-ad25-e4ed929cc289
+# ╠═8ea94030-5c69-48e3-b0e9-388c20d182b5
+# ╠═f85b85b6-2f7a-4e08-b613-4bd100a2a4e7
+# ╠═b8c5d74d-f385-4cca-9fd5-4fab3acb62e9
+# ╠═944fe613-e3b7-41d3-8aec-11fe0c439566
+# ╠═a513fa1a-a4e0-438e-854f-bb79c55372b4
+# ╠═d7b18331-7582-431c-9ca0-793605c5ea1b
+# ╠═f89edfb0-6238-45f8-afa0-521b031ba638
+# ╠═49e99fba-4c4a-44f8-b186-63ea08fba827
+# ╠═5f9bb2ea-6268-4844-8b5c-7078bc2093d9
+# ╠═2e291ed6-69ac-4fbf-9d1f-bb15bf5cf878
