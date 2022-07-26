@@ -4,44 +4,49 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 9fcae06d-11c4-405c-9738-fd74a6f2cc9a
-using DataFrames, CSV, Distributions, Plots, Clustering, PlutoUI
+# ╔═╡ 422b8d32-0cf0-11ed-3f08-7bf9dc24a547
+using DataFrames, CSV, Plots, Statistics, Clustering
 
 
-# ╔═╡ 084acc2b-fc37-400b-8146-dd1cd254ec9e
-TableOfContents()
+# ╔═╡ 180b083a-6f94-4774-9543-222f327ed41d
+df = DataFrame(CSV.File(homedir()*"/src/ThinkBayes.jl/happiness.csv", normalizenames=true))
 
-# ╔═╡ 41940e4f-7841-4fd4-a10f-7d333c536ef3
-df = DataFrame(CSV.File(download("https://github.com/allisonhorst/palmerpenguins/raw/master/inst/extdata/penguins_raw.csv"), missingstring="NA", normalizenames=true))
+# ╔═╡ b2f68589-0457-42e6-8d2b-b027c08dc41a
+begin
+	columns = [:Ladder_score, :Logged_GDP_per_capita, :Social_support, :Healthy_life_expectancy, :Freedom_to_make_life_choices, :Generosity, :Perceptions_of_corruption]
+	standardized = df[:, columns]
+end;
 
-# ╔═╡ 46deb458-fed9-46c3-bdd5-88f1e6233750
-names(df)
+# ╔═╡ 2bb79095-69e5-4dde-b279-5602e48e5a29
+standardized.Country_name = df.Country_name
 
-# ╔═╡ 85b4aa28-b405-453e-aac4-3a03945499e4
-dropmissing!(df, ["Flipper_Length_mm_", "Culmen_Length_mm_","Culmen_Depth_mm_"])
 
-# ╔═╡ 91b4f2c9-1562-4e42-9605-e9806db40bba
-df.Species2 = first.(split.(df.Species))
+# ╔═╡ ba11ec78-cb7e-4a08-b7e1-be0a22a5defc
+M = Matrix(df[:,columns])'
 
-# ╔═╡ bbbbbfea-2438-4c7c-bc5c-9ffad10f6a69
-m = Matrix(df[:,["Flipper_Length_mm_", "Culmen_Length_mm_"]])'
+# ╔═╡ 316876e9-eafb-473d-a30f-54559b472674
+begin
+	means = mean(M, dims=2)
+	stds = std(M, dims=2)
+end
 
-# ╔═╡ 4bbc6b99-fc9f-437b-826d-4bc5c5ec7070
-R = kmeans(m, 3)
+# ╔═╡ 7622e3c4-21b0-4f5c-b45b-4dbdbfcc86f2
+M2 = (M .- means) ./ stds
 
-# ╔═╡ e787d5c0-d1fd-4f9e-8824-b38739d03cd4
-species=["Chinstrap", "Adelie", "Gentoo"]
+# ╔═╡ 8ca9bfd0-75e0-46c6-babe-10af9c3bf822
+begin
+	R = kmeans(M2, 5)
+	standardized.labels = R.assignments
+	g = groupby(standardized, :labels);
+end
 
-# ╔═╡ 3bf3f6d9-6d34-41d9-9c49-1f561b1609f0
-df.kspecies = species[R.assignments] 
+# ╔═╡ 7cb33e55-ceac-4614-a64c-db689e621d38
+begin
+	ls = combine(g, :Ladder_score => mean)
+	bar(sort(ls.Ladder_score_mean))
+end
 
-# ╔═╡ 0ce57b0a-524f-4ab2-a378-1805f639e6b8
-accuracy() = sum(df.kspecies .== df.Species2) / 342
-
-# ╔═╡ fdb1d9ae-8c7d-4d9f-87a8-d07dc3e96509
-accuracy()
-
-# ╔═╡ cce2a373-bc36-412a-9cb1-d8692e9d380c
+# ╔═╡ 1d5fc4c4-ad94-4de1-81c4-99fefa50755c
 function scatterplot!(df, var1, var2; by="Species2")
 	plot()
 	gd = groupby(df, [by]);
@@ -54,183 +59,38 @@ function scatterplot!(df, var1, var2; by="Species2")
 end
 
 
-# ╔═╡ 27dadecc-2f73-4520-9e12-8d9a4c20aea1
+# ╔═╡ 68a59635-4f95-4eec-8f63-404cbf5967d3
 function plotcenters(centers, color=:red)
 	xs,ys = centers[1,:],centers[2,:]
 	scatter!(xs, ys, markersize=10, markercolor=color, markershape=:star5, label="Centers")
 end
 
-# ╔═╡ 6c269ca6-8af3-4b03-ae3d-7b5c67a8788b
-scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="Species2")
 
-# ╔═╡ 78435d3c-13fb-4551-9f51-4dc6a645dccc
+# ╔═╡ b6590e9f-4659-4076-8366-97b4b6773a4e
+cols = names(standardized)
+
+# ╔═╡ 60ac6a41-fd22-44e2-8549-b0ebcf4aee2c
 begin
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="kspecies")
-	plotcenters(R.centers)
-end
-
-# ╔═╡ 7dca1716-6189-4f4b-8f4c-e99e8dd35f16
-md"## Implementing k-means"
-
-# ╔═╡ 880510eb-a18c-40c0-b257-89f0a8381aa3
-function choose_random_start(M, k)
-	index = rand(1:size(M)[2], k)
-	centers = M[:,index]
-end
-
-# ╔═╡ cb364696-768e-4ae7-b3ac-7122d498f2c4
-centers = choose_random_start(m, 3)
-
-# ╔═╡ 17363cfa-3251-42a4-9159-07bf8a78d06b
-begin
-	df.klabels .= 0
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="klabels")
+	scatterplot!(standardized, cols[7], cols[6], by="labels")
+	centers = R.centers # .* stds .+ means
 	plotcenters(centers)
 end
 
-# ╔═╡ cf4e98c3-0b48-4c24-a746-fc062eef97d2
-center_x, center_y = centers[:,1]
+# ╔═╡ 20b10b8e-3a85-4bd5-a850-e84f498cd3ea
+g[3]
 
-# ╔═╡ 34f4bb43-98b3-444c-bcaf-afb93879b999
-x, y = m[1,:], m[2,:]
-
-# ╔═╡ 786d89ad-7f07-4270-975f-eaa12d2e7628
-size(x)
-
-# ╔═╡ c03abd0d-11b2-4623-b4b0-12b859345cea
-distances = hypot.(x.-center_x, y.-center_y)
-
-# ╔═╡ 6b636ba3-8fac-410b-b3e1-1e7118c175bf
-begin
-	plot()
-	scatter!([center_x], [center_y], markersize=10)
-	scatter!(x, y, marker_z=distances)
-	plot!()
+# ╔═╡ 93f2c953-c26b-4ba2-80a7-7d0bc80b5f33
+for col in cols[1:7]
+	println(combine(g, Symbol(col) => mean))
 end
 
-# ╔═╡ c9c868f5-aec0-4e21-9143-9f09b5d2cfce
-function compute_distances(M, center)
-	x, y = M[1,:], M[2,:]
-	center_x, center_y = center[:,1]
-	hypot.(x.-center_x, y.-center_y)
+# ╔═╡ 3330bfff-f93d-453c-9790-56ecc47565c5
+top_group = g[sort(combine(g, :Ladder_score => mean), :Ladder_score_mean, rev=true).labels[2]]
+
+# ╔═╡ b07560b7-16ed-46ea-9711-24dcf1c28b60
+for col in cols[2:7]
+	println(sort(top_group, Symbol(col), rev=true)[:,["Country_name", col]])
 end
-
-# ╔═╡ 096cff0c-64b7-458b-a9ad-d54d58560a95
-distance_arrays = [compute_distances(m, centers[:,i]) for i in 1:size(centers)[2]]
-
-# ╔═╡ b69c5726-78a8-411a-aa6b-efbd385d6852
-A = reduce(hcat, distance_arrays)'
-
-# ╔═╡ 707edcc5-5d72-47d8-888e-e6848474955c
-[ci[1] for ci in argmin(A, dims=1)]
-
-# ╔═╡ 8636456c-7d83-4a44-8c13-c3be0bada375
-function compute_labels(M, centers)
-	distance_arrays = [compute_distances(M, centers[:,i]) for i in 1:size(centers)[2]]
-	A = reduce(hcat, distance_arrays)'
-	reshape([ci[1] for ci in argmin(A, dims=1)],size(M)[2])
-end
-
-# ╔═╡ 3d5ed6b1-747e-4718-950b-5a9799eb6c71
-df.klabels2 = compute_labels(m, centers)
-
-# ╔═╡ acfb75a2-3188-472b-bb3a-d6137017d885
-begin
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="klabels2")
-	plotcenters(centers)
-end
-
-# ╔═╡ 4b13069a-dd12-4a83-be1c-d7ab64b0badc
-begin
-	g = groupby(df, :klabels)
-	group = g[1]
-	mean(Matrix(group[:,["Flipper_Length_mm_", "Culmen_Length_mm_"]]), dims=1)
-end
-
-# ╔═╡ 6a13365f-1519-4034-9c30-f28e840f529e
-function compute_new_centers(df, features)
-	g = groupby(df, :klabels)
-	reduce(vcat, [mean(Matrix(group[:,features]), dims=1) for group in g])'
-end
-
-# ╔═╡ 9cd85a17-300e-441b-92fa-2cdd33718668
-new_centers = compute_new_centers(df, ["Flipper_Length_mm_", "Culmen_Length_mm_"])
-
-# ╔═╡ 0d5d83ff-193a-48c0-bd40-50429d24c76a
-begin
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="klabels2")
-	plotcenters(centers, :grey)
-	plotcenters(new_centers, :red)
-end
-
-# ╔═╡ 226dbb08-0267-4271-8432-9c0247729984
-md"## The k-means algorithm"
-
-# ╔═╡ 5822f5e5-20d0-4f7e-ad56-739d88b5a1cb
-function my_kmeans(df, features, k)
-	M = Matrix(df[:, features])'
-	centers = choose_random_start(M, k)
-	for i in 1:15
-		df.labels = compute_labels(M, centers)
-		centers = compute_new_centers(df, features)
-	end
-	centers
-end
-
-# ╔═╡ c336815e-03b9-4c09-b932-5c278c20463c
-
-
-# ╔═╡ e442aae1-5703-4381-b2cd-b8c51104582f
-centers3 = my_kmeans(df, ["Flipper_Length_mm_", "Culmen_Length_mm_"], 3)
-
-# ╔═╡ 0cd78113-3d27-4542-9319-297e4e905714
-begin
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="labels")
-	plotcenters(centers3)
-end
-
-# ╔═╡ b0c9ea59-fbbc-40c4-8130-a851c3d17793
-md"## Number of Clusters"
-
-# ╔═╡ ee592141-652c-46b2-8321-e18ab6ba3615
-begin
-	Rt = kmeans(m, 3)
-	df.labels = Rt.assignments
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="labels")
-	plotcenters(Rt.centers)
-end
-
-# ╔═╡ f8c7e8cb-4ae0-48c0-8227-aacb70f48f5c
-md"## Standardization"
-
-# ╔═╡ c48f1fee-0ac3-4e2f-8690-e412fcf5548f
-begin
-	means = mean(m, dims=2)
-	stds = std(m, dims=2)
-end
-
-# ╔═╡ 01f1656a-0be4-4884-85d6-6fe7d9a8a9d4
-m2 = (m .- means) ./ stds
-
-# ╔═╡ 5d81eccb-fc56-4030-b620-5bf111b80bfb
-R2 = kmeans(m2, 3)
-
-# ╔═╡ 0c9111ff-ff09-4d78-8606-c56cfa53da9e
-df.kspecies2 = species[R2.assignments] 
-
-# ╔═╡ 823ea917-c875-4c8e-9a14-dfd2c13c2010
-begin
-	centers2 = R2.centers .* stds .+ means
-end
-
-# ╔═╡ 8f204897-7b42-4d0f-9f25-668b2ea05ef9
-begin
-	scatterplot!(df, "Flipper_Length_mm_", "Culmen_Length_mm_", by="kspecies2")
-	plotcenters(centers2)
-end
-
-# ╔═╡ a97a3933-f89a-4195-8dc6-61c5823c6af4
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -238,17 +98,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CSV = "~0.10.4"
 Clustering = "~0.14.2"
 DataFrames = "~1.3.4"
-Distributions = "~0.25.65"
-Plots = "~1.31.3"
-PlutoUI = "~0.7.39"
+Plots = "~1.31.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -257,13 +114,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.0-rc1"
 manifest_format = "2.0"
-project_hash = "3366dc57d60e25eebad2e725f2fe457b17693224"
-
-[[deps.AbstractPlutoDingetjes]]
-deps = ["Pkg"]
-git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
-uuid = "6e696c72-6542-2067-7265-42206c756150"
-version = "1.1.4"
+project_hash = "3de292336e979a281773a7100e6fb41d1d5913bf"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -298,12 +149,6 @@ deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll",
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
-
-[[deps.Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -404,12 +249,6 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
-[[deps.DensityInterface]]
-deps = ["InverseFunctions", "Test"]
-git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
-uuid = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
-version = "0.4.0"
-
 [[deps.Distances]]
 deps = ["LinearAlgebra", "SparseArrays", "Statistics", "StatsAPI"]
 git-tree-sha1 = "3258d0659f812acde79e8a74b11f17ac06d0ca04"
@@ -420,28 +259,16 @@ version = "0.10.7"
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
-[[deps.Distributions]]
-deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "429077fd74119f5ac495857fd51f4120baf36355"
-uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.65"
-
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
-git-tree-sha1 = "b19534d1895d702889b219c382a6e18010797f0b"
+git-tree-sha1 = "c5544d8abb854e306b7b2f799ab31cdba527ccae"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.8.6"
+version = "0.9.0"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
-
-[[deps.DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.8"
 
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -475,12 +302,6 @@ version = "0.9.18"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
-
-[[deps.FillArrays]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "246621d23d1f43e3b9c368bf3b72b2331a27c286"
-uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.13.2"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -575,30 +396,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[deps.HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions", "Test"]
-git-tree-sha1 = "709d864e3ed6e3545230601f94e11ebc65994641"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.11"
-
-[[deps.Hyperscript]]
-deps = ["Test"]
-git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
-uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
-version = "0.0.4"
-
-[[deps.HypertextLiteral]]
-deps = ["Tricks"]
-git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
-uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.4"
-
-[[deps.IOCapture]]
-deps = ["Logging", "Random"]
-git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
-uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
-version = "0.2.2"
-
 [[deps.IniFile]]
 git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
 uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
@@ -683,9 +480,9 @@ version = "1.3.0"
 
 [[deps.Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "46a39b9c58749eefb5f2dc1178cb8fab5332b1ab"
+git-tree-sha1 = "1a43be956d433b5d0321197150c2f94e16c0aaa0"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.15"
+version = "0.15.16"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -763,9 +560,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "09e4b894ce6a976c354a69041a04748180d43637"
+git-tree-sha1 = "7c88f63f9f0eb5929f15695af9a4d7d3ed278a91"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.15"
+version = "0.3.16"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -876,12 +673,6 @@ git-tree-sha1 = "b2a7af664e098055a7529ad1a900ded962bca488"
 uuid = "2f80f16e-611a-54ab-bc61-aa92de5b98fc"
 version = "8.44.0+0"
 
-[[deps.PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "cf494dca75a69712a72b80bc48f59dcf3dea63ec"
-uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.16"
-
 [[deps.Parsers]]
 deps = ["Dates"]
 git-tree-sha1 = "0044b23da09b5608b4ecacb4e5e6c6332f833a7e"
@@ -913,15 +704,9 @@ version = "1.3.0"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "5a1e85f3aed2e0d3d99a4068037c8582597b89cf"
+git-tree-sha1 = "0a0da27969e8b6b2ee67c112dcf7001a659049a0"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.31.3"
-
-[[deps.PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "8d1f54886b9037091edf146b517989fc4a09efec"
-uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.39"
+version = "1.31.4"
 
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -950,12 +735,6 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll
 git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
 version = "5.15.3+1"
-
-[[deps.QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
-uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.4.2"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -992,18 +771,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
-
-[[deps.Rmath]]
-deps = ["Random", "Rmath_jll"]
-git-tree-sha1 = "bf3188feca147ce108c76ad82c2792c57abe7b1f"
-uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
-version = "0.7.0"
-
-[[deps.Rmath_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "68db32dff12bb6127bac73c209881191bf0efbb7"
-uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
-version = "0.3.0+0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1060,9 +827,9 @@ version = "2.1.7"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
-git-tree-sha1 = "e972716025466461a3dc1588d9168334b71aafff"
+git-tree-sha1 = "23368a3313d12a2326ad0035f0db0c0966f438ef"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.5.1"
+version = "1.5.2"
 
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "66fe9eb253f910fe8cf161953880cfdaef01cdf0"
@@ -1085,21 +852,11 @@ git-tree-sha1 = "472d044a1c8df2b062b23f222573ad6837a615ba"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.19"
 
-[[deps.StatsFuns]]
-deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "5783b877201a82fc0014cbf381e7e6eb130473a4"
-uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "1.0.1"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
 git-tree-sha1 = "ec47fb6069c57f1cee2f67541bf8f23415146de7"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.11"
-
-[[deps.SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
-uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1138,11 +895,6 @@ deps = ["Random", "Test"]
 git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.9.6"
-
-[[deps.Tricks]]
-git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
-uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
-version = "0.1.6"
 
 [[deps.URIs]]
 git-tree-sha1 = "e59ecc5a41b000fa94423a578d29290c7266fc10"
@@ -1399,56 +1151,22 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═9fcae06d-11c4-405c-9738-fd74a6f2cc9a
-# ╠═084acc2b-fc37-400b-8146-dd1cd254ec9e
-# ╠═41940e4f-7841-4fd4-a10f-7d333c536ef3
-# ╠═46deb458-fed9-46c3-bdd5-88f1e6233750
-# ╠═85b4aa28-b405-453e-aac4-3a03945499e4
-# ╠═91b4f2c9-1562-4e42-9605-e9806db40bba
-# ╠═bbbbbfea-2438-4c7c-bc5c-9ffad10f6a69
-# ╠═4bbc6b99-fc9f-437b-826d-4bc5c5ec7070
-# ╠═e787d5c0-d1fd-4f9e-8824-b38739d03cd4
-# ╠═3bf3f6d9-6d34-41d9-9c49-1f561b1609f0
-# ╠═0ce57b0a-524f-4ab2-a378-1805f639e6b8
-# ╠═fdb1d9ae-8c7d-4d9f-87a8-d07dc3e96509
-# ╠═cce2a373-bc36-412a-9cb1-d8692e9d380c
-# ╠═27dadecc-2f73-4520-9e12-8d9a4c20aea1
-# ╠═6c269ca6-8af3-4b03-ae3d-7b5c67a8788b
-# ╠═78435d3c-13fb-4551-9f51-4dc6a645dccc
-# ╟─7dca1716-6189-4f4b-8f4c-e99e8dd35f16
-# ╠═880510eb-a18c-40c0-b257-89f0a8381aa3
-# ╠═cb364696-768e-4ae7-b3ac-7122d498f2c4
-# ╠═17363cfa-3251-42a4-9159-07bf8a78d06b
-# ╠═cf4e98c3-0b48-4c24-a746-fc062eef97d2
-# ╠═34f4bb43-98b3-444c-bcaf-afb93879b999
-# ╠═786d89ad-7f07-4270-975f-eaa12d2e7628
-# ╠═c03abd0d-11b2-4623-b4b0-12b859345cea
-# ╠═6b636ba3-8fac-410b-b3e1-1e7118c175bf
-# ╠═c9c868f5-aec0-4e21-9143-9f09b5d2cfce
-# ╠═096cff0c-64b7-458b-a9ad-d54d58560a95
-# ╠═b69c5726-78a8-411a-aa6b-efbd385d6852
-# ╠═707edcc5-5d72-47d8-888e-e6848474955c
-# ╠═8636456c-7d83-4a44-8c13-c3be0bada375
-# ╠═3d5ed6b1-747e-4718-950b-5a9799eb6c71
-# ╠═acfb75a2-3188-472b-bb3a-d6137017d885
-# ╠═4b13069a-dd12-4a83-be1c-d7ab64b0badc
-# ╠═6a13365f-1519-4034-9c30-f28e840f529e
-# ╠═9cd85a17-300e-441b-92fa-2cdd33718668
-# ╠═0d5d83ff-193a-48c0-bd40-50429d24c76a
-# ╟─226dbb08-0267-4271-8432-9c0247729984
-# ╠═5822f5e5-20d0-4f7e-ad56-739d88b5a1cb
-# ╠═c336815e-03b9-4c09-b932-5c278c20463c
-# ╠═e442aae1-5703-4381-b2cd-b8c51104582f
-# ╠═0cd78113-3d27-4542-9319-297e4e905714
-# ╟─b0c9ea59-fbbc-40c4-8130-a851c3d17793
-# ╠═ee592141-652c-46b2-8321-e18ab6ba3615
-# ╟─f8c7e8cb-4ae0-48c0-8227-aacb70f48f5c
-# ╠═c48f1fee-0ac3-4e2f-8690-e412fcf5548f
-# ╠═01f1656a-0be4-4884-85d6-6fe7d9a8a9d4
-# ╠═5d81eccb-fc56-4030-b620-5bf111b80bfb
-# ╠═0c9111ff-ff09-4d78-8606-c56cfa53da9e
-# ╠═823ea917-c875-4c8e-9a14-dfd2c13c2010
-# ╠═8f204897-7b42-4d0f-9f25-668b2ea05ef9
-# ╠═a97a3933-f89a-4195-8dc6-61c5823c6af4
+# ╠═422b8d32-0cf0-11ed-3f08-7bf9dc24a547
+# ╠═180b083a-6f94-4774-9543-222f327ed41d
+# ╠═b2f68589-0457-42e6-8d2b-b027c08dc41a
+# ╠═2bb79095-69e5-4dde-b279-5602e48e5a29
+# ╠═ba11ec78-cb7e-4a08-b7e1-be0a22a5defc
+# ╠═316876e9-eafb-473d-a30f-54559b472674
+# ╠═7622e3c4-21b0-4f5c-b45b-4dbdbfcc86f2
+# ╠═8ca9bfd0-75e0-46c6-babe-10af9c3bf822
+# ╠═7cb33e55-ceac-4614-a64c-db689e621d38
+# ╠═1d5fc4c4-ad94-4de1-81c4-99fefa50755c
+# ╠═68a59635-4f95-4eec-8f63-404cbf5967d3
+# ╠═b6590e9f-4659-4076-8366-97b4b6773a4e
+# ╠═60ac6a41-fd22-44e2-8549-b0ebcf4aee2c
+# ╠═20b10b8e-3a85-4bd5-a850-e84f498cd3ea
+# ╠═93f2c953-c26b-4ba2-80a7-7d0bc80b5f33
+# ╠═3330bfff-f93d-453c-9790-56ecc47565c5
+# ╠═b07560b7-16ed-46ea-9711-24dcf1c28b60
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
