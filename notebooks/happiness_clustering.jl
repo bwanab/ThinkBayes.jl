@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.9
+# v0.19.10
 
 using Markdown
 using InteractiveUtils
@@ -92,6 +92,24 @@ for col in cols[2:7]
 	println(sort(top_group, Symbol(col), rev=true)[:,["Country_name", col]])
 end
 
+# ╔═╡ d6ef9972-84c2-4281-a417-d995df4d2c23
+histogram(exp.(df[:,columns[2]]).^0.2, bins=20)
+
+# ╔═╡ 053cff30-6f4e-4f11-95b5-46dfd2efc1d0
+histogram(exp.(df[:,columns[3]]).^5, bins=12)
+
+# ╔═╡ d96f2765-5882-4b2d-a98d-b12805e82346
+histogram(df[:, columns[4]].^3, bins=20)
+
+# ╔═╡ 783f63c5-90b6-49cd-8d85-37ddc653f886
+histogram(df[:, columns[5]].^3, bins=20)
+
+# ╔═╡ 9d86ba70-6905-4ed2-9529-58f7af11d433
+histogram(log.(df[:, columns[6]].+0.5), bins=20)
+
+# ╔═╡ 71ac8550-b534-4c38-b752-8f9e214d2118
+histogram(exp.(df[:, columns[7]]).^4, bins=12)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -114,7 +132,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.0-rc1"
 manifest_format = "2.0"
-project_hash = "3de292336e979a281773a7100e6fb41d1d5913bf"
+project_hash = "1b59841c130fd3fbe05099ac5a3ee595bf094a78"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -1168,5 +1186,11 @@ version = "0.9.1+5"
 # ╠═93f2c953-c26b-4ba2-80a7-7d0bc80b5f33
 # ╠═3330bfff-f93d-453c-9790-56ecc47565c5
 # ╠═b07560b7-16ed-46ea-9711-24dcf1c28b60
+# ╠═d6ef9972-84c2-4281-a417-d995df4d2c23
+# ╠═053cff30-6f4e-4f11-95b5-46dfd2efc1d0
+# ╠═d96f2765-5882-4b2d-a98d-b12805e82346
+# ╠═783f63c5-90b6-49cd-8d85-37ddc653f886
+# ╠═9d86ba70-6905-4ed2-9529-58f7af11d433
+# ╠═71ac8550-b534-4c38-b752-8f9e214d2118
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
